@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Conciliador Impositivo ARCA vs Holistor</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <style>
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: #f1f5f9; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+    </style>
+</head>
+<body class="bg-slate-100 min-h-screen font-sans text-slate-800 pb-12">
+
+    <header class="bg-slate-900 text-white shadow-md sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <div class="bg-blue-600 p-2 rounded-lg text-white font-bold">
+                    <i class="fa-solid fa-scale-balanced text-xl"></i>
+                </div>
+                <div>
+                    <h1 class="font-bold text-lg leading-tight">Conciliador Impositivo</h1>
+                    <p class="text-xs text-slate-400">Cruce Automático: Holistor vs ARCA / AFIP</p>
+                </div>
+            </div>
+            <button onclick="resetAllData()" class="px-3 py-1.5 bg-red-800 hover:bg-red-700 text-white text-xs font-semibold rounded border border-red-700 transition flex items-center gap-1.5">
+                <i class="fa-solid fa-rotate"></i> Limpiar Todo
+            </button>
+        </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-6 space-y-6">
+
+        <!-- Carga de Archivos Directa -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            
+            <!-- Caja Holistor -->
+            <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 space-y-3">
+                <div class="flex justify-between items-center border-b pb-2">
+                    <h2 class="font-bold text-slate-800 text-sm flex items-center gap-2">
+                        <i class="fa-solid fa-file-excel text-emerald-600 text-base"></i> 1. Excel HOLISTOR (IVA Compras)
+                    </h2>
+                    <span id="holistorStatusBadge" class="text-[11px] px-2 py-0.5 rounded font-bold bg-slate-100 text-slate-500">Pendiente</span>
+                </div>
+                <p class="text-xs text-slate-500">Subí la planilla de Holistor directamente sin modificar nada.</p>
+                <input type="file" id="holistorInput" accept=".xlsx,.xls" class="hidden" onchange="processHolistorFile(event)">
+                <button onclick="document.getElementById('holistorInput').click()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 rounded-lg shadow transition text-xs flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-upload"></i> Seleccionar Excel HOLISTOR Original
+                </button>
+                <div id="holistorInfo" class="text-xs text-slate-600 font-mono hidden bg-emerald-50 p-2.5 rounded border border-emerald-200">
+                    Comprobantes leídos: <strong id="holistorCount" class="text-emerald-800">0</strong>
+                </div>
+            </div>
+
+            <!-- Caja ARCA -->
+            <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 space-y-3">
+                <div class="flex justify-between items-center border-b pb-2">
+                    <h2 class="font-bold text-slate-800 text-sm flex items-center gap-2">
+                        <i class="fa-solid fa-building-columns text-blue-600 text-base"></i> 2. Excel ARCA / AFIP (Mis Comprobantes)
+                    </h2>
+                    <span id="arcaStatusBadge" class="text-[11px] px-2 py-0.5 rounded font-bold bg-slate-100 text-slate-500">Pendiente</span>
+                </div>
+                <p class="text-xs text-slate-500">Subí la descarga tal cual sale de AFIP ("Mis Comprobantes Recibidos").</p>
+                <input type="file" id="arcaInput" accept=".xlsx,.xls" class="hidden" onchange="processArcaFile(event)">
+                <button onclick="document.getElementById('arcaInput').click()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 rounded-lg shadow transition text-xs flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-upload"></i> Seleccionar Excel ARCA Original
+                </button>
+                <div id="arcaInfo" class="text-xs text-slate-600 font-mono hidden bg-blue-50 p-2.5 rounded border border-blue-200">
+                    Comprobantes leídos: <strong id="arcaCount" class="text-blue-800">0</strong>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Resumen de Métricas -->
+        <div id="summarySection" class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 space-y-4">
+            <h3 class="font-bold text-slate-800 text-sm flex items-center gap-2">
+                <i class="fa-solid fa-chart-pie text-indigo-600"></i> Resumen del Cruce
+            </h3>
+
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 text-center">
+                <div class="bg-slate-50 p-3 rounded-lg border border-slate-200">
+                    <p class="text-[11px] text-slate-500 font-semibold uppercase">Total ARCA</p>
+                    <p id="cardArcaTotal" class="text-xl font-extrabold text-blue-700">0</p>
+                </div>
+                <div class="bg-slate-50 p-3 rounded-lg border border-slate-200">
+                    <p class="text-[11px] text-slate-500 font-semibold uppercase">Total Holistor</p>
+                    <p id="cardHolistorTotal" class="text-xl font-extrabold text-emerald-700">0</p>
+                </div>
+                <div class="bg-emerald-50 p-3 rounded-lg border border-emerald-200">
+                    <p class="text-[11px] text-emerald-700 font-semibold uppercase">Coinciden en Ambos</p>
+                    <p id="cardMatched" class="text-xl font-extrabold text-emerald-800">0</p>
+                </div>
+                <div class="bg-amber-50 p-3 rounded-lg border border-amber-200">
+                    <p class="text-[11px] text-amber-700 font-semibold uppercase">Diferencias Totales</p>
+                    <p id="cardDiff" class="text-xl font-extrabold text-amber-800">0</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tabla Unificada -->
+        <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+            <div class="bg-slate-900 text-white px-5 py-3.5 flex justify-between items-center">
+                <div>
+                    <h3 class="font-bold text-sm flex items-center gap-2">
+                        <i class="fa-solid fa-table-columns text-blue-400"></i> Planilla Unificada de Conciliación
+                    </h3>
+                    <p class="text-[11px] text-slate-300">Coincidentes alineadas en verde | Solo en ARCA en rojo | Solo en Holistor en amarillo</p>
+                </div>
+                <div class="flex items-center space-x-2 text-xs font-semibold">
+                    <span class="px-2.5 py-1 bg-emerald-950 text-emerald-300 border border-emerald-700 rounded">
+                        Coincidentes: <strong id="cntMatched">0</strong>
+                    </span>
+                    <span class="px-2.5 py-1 bg-red-950 text-red-300 border border-red-700 rounded">
+                        Solo ARCA: <strong id="cntOnlyArca">0</strong>
+                    </span>
+                    <span class="px-2.5 py-1 bg-amber-950 text-amber-300 border border-amber-700 rounded">
+                        Solo Holistor: <strong id="cntOnlyHolistor">0</strong>
+                    </span>
+                </div>
+            </div>
+
+            <div class="overflow-x-auto custom-scrollbar">
+                <table class="w-full text-left text-xs border-collapse">
+                    <thead>
+                        <tr class="bg-slate-100 text-slate-700 font-bold uppercase tracking-wider text-[11px] border-b border-slate-300 divide-x divide-slate-300">
+                            <th colspan="6" class="p-2.5 text-center bg-blue-50 text-blue-900 border-r border-slate-300">
+                                REGISTROS DE ARCA / AFIP
+                            </th>
+                            <th colspan="6" class="p-2.5 text-center bg-emerald-50 text-emerald-900">
+                                REGISTROS DE HOLISTOR
+                            </th>
+                        </tr>
+                        <tr class="bg-slate-200 text-slate-600 font-semibold uppercase text-[10px] border-b border-slate-300 divide-x divide-slate-200">
+                            <!-- ARCA -->
+                            <th class="p-2">Fecha</th>
+                            <th class="p-2">Tipo</th>
+                            <th class="p-2">Comprobante</th>
+                            <th class="p-2">CUIT Emisor</th>
+                            <th class="p-2">Emisor (AFIP)</th>
+                            <th class="p-2 text-right">Total ARCA</th>
+                            <!-- HOLISTOR -->
+                            <th class="p-2">Fecha</th>
+                            <th class="p-2">Tipo</th>
+                            <th class="p-2">Comprobante</th>
+                            <th class="p-2">CUIT Proveedor</th>
+                            <th class="p-2">Proveedor (Holistor)</th>
+                            <th class="p-2 text-right">Total Holistor</th>
+                        </tr>
+                    </thead>
+                    <tbody id="reconciliationTbody" class="divide-y divide-slate-200 text-slate-700 font-mono">
+                        <tr>
+                            <td colspan="12" class="p-8 text-center text-slate-400 font-sans italic">
+                                Cargar ambas planillas para visualizar la conciliación automática.
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+    </main>
+
+    <script>
+        let listHolistor = [];
+        let listArca = [];
+
+        function formatNumber(num) {
+            return (num || 0).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        }
+
+        function parseSmartAmount(val) {
+            if (val === null || val === undefined || val === '') return 0;
+            if (typeof val === 'number') return val;
+            let s = String(val).trim().replace(/[\$\s]/g, '');
+            if (!s) return 0;
+            if (s.includes('.') && s.includes(',')) {
+                if (s.lastIndexOf(',') > s.lastIndexOf('.')) {
+                    s = s.replace(/\./g, '').replace(',', '.');
+                } else {
+                    s = s.replace(/,/g, '');
+                }
+            } else if (s.includes(',')) {
+                s = s.replace(',', '.');
+            }
+            let res = parseFloat(s);
+            return isNaN(res) ? 0 : res;
+        }
+
+        function padDigits(val, len) {
+            let str = String(val || '').trim();
+            let digits = str.replace(/\D/g, '');
+            if (!digits) return '0'.repeat(len);
+            return digits.padStart(len, '0');
+        }
+
+        function extractCuit(str) {
+            if (!str) return '';
+            let digits = String(str).replace(/\D/g, '');
+            if (digits.length >= 11) {
+                let c = digits.slice(-11);
+                return `${c.slice(0,2)}-${c.slice(2,10)}-${c.slice(10)}`;
+            }
+            return digits;
+        }
+
+        function formatDateClean(val) {
+            if (!val) return '';
+            let s = String(val).trim();
+            if (s.includes('T')) s = s.split('T')[0];
+            let d = new Date(s);
+            if (!isNaN(d.getTime()) && s.includes('-')) {
+                let parts = s.split('-');
+                if (parts.length === 3 && parts[0].length === 4) {
+                    return `${parts[2]}/${parts[1]}/${parts[0]}`;
+                }
+            }
+            return s;
+        }
+
+        // --- HOLISTOR ---
+        function processHolistorFile(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(evt) {
+                try {
+                    const data = new Uint8Array(evt.target.result);
+                    const workbook = XLSX.read(data, { type: 'array', cellDates: true, raw: true });
+                    const sheet = workbook.Sheets[workbook.SheetNames[0]];
+                    const json = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
+
+                    let headerRowIdx = -1;
+                    for (let i = 0; i < json.length; i++) {
+                        const rowStr = json[i].map(c => String(c).toLowerCase().trim()).join(' ');
+                        if (rowStr.includes('comprobante') && rowStr.includes('proveedor')) {
+                            headerRowIdx = i;
+                            break;
+                        }
+                    }
+
+                    if (headerRowIdx === -1) {
+                        alert('No se detectó el formato de Holistor.');
+                        return;
+                    }
+
+                    const headers = json[headerRowIdx].map(h => String(h).toLowerCase().trim());
+                    let compIdx = headers.findIndex(h => h.includes('comprobante'));
+                    let provIdx = headers.findIndex(h => h.includes('proveedor'));
+                    let cuitIdx = headers.findIndex(h => h.includes('tipo/nro.doc') || h.includes('nro.doc') || h.includes('doc'));
+                    let fechaIdx = headers.findIndex(h => h.includes('fecha'));
+                    let totalIdx = headers.findIndex(h => h.includes('total'));
+
+                    if (compIdx === -1) compIdx = 1;
+                    if (provIdx === -1) provIdx = 2;
+                    if (cuitIdx === -1) cuitIdx = 3;
+                    if (fechaIdx === -1) fechaIdx = 0;
+                    if (totalIdx === -1) totalIdx = headers.length - 1;
+
+                    listHolistor = [];
+                    for (let r = headerRowIdx + 1; r < json.length; r++) {
+                        const row = json[r];
+                        if (!row[compIdx] || row[totalIdx] === '' || row[totalIdx] === undefined) continue;
+
+                        const compStr = String(row[compIdx]).trim();
+                        if (!compStr || compStr.toLowerCase().includes('total') || compStr.toLowerCase().includes('porcentajes') || compStr.toLowerCase() === 'nan') continue;
+
+                        const parts = compStr.split(/\s+/);
+                        if (parts.length < 2) continue;
+
+                        const num = padDigits(parts[parts.length - 1], 8);
+                        const pv = parts.length >= 3 ? padDigits(parts[parts.length - 2], 5) : '00001';
+                        const tipo = parts.length >= 3 ? parts.slice(0, parts.length - 2).join(' ') : parts[0];
+
+                        const total = parseSmartAmount(row[totalIdx]);
+                        const prov = String(row[provIdx] || '').trim();
+                        const rawCuit = String(row[cuitIdx] || '');
+                        const cuit = extractCuit(rawCuit);
+                        const fecha = formatDateClean(row[fechaIdx]);
+
+                        listHolistor.push({
+                            fecha: fecha, tipo: tipo, pv: pv, num: num, prov: prov, cuit: cuit, total: total, key: `${pv}_${num}`
+                        });
+                    }
+
+                    document.getElementById('holistorCount').innerText = listHolistor.length;
+                    document.getElementById('holistorInfo').classList.remove('hidden');
+                    document.getElementById('holistorStatusBadge').className = "text-[11px] px-2 py-0.5 rounded font-bold bg-emerald-100 text-emerald-800";
+                    document.getElementById('holistorStatusBadge').innerText = "Cargado ✓";
+
+                    runComparison();
+                } catch (err) {
+                    console.error(err);
+                    alert('Error procesando Holistor.');
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        // --- ARCA ---
+        function processArcaFile(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(evt) {
+                try {
+                    const data = new Uint8Array(evt.target.result);
+                    const workbook = XLSX.read(data, { type: 'array', cellDates: true, raw: true });
+                    const sheet = workbook.Sheets[workbook.SheetNames[0]];
+                    const json = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
+
+                    let headerRowIdx = -1;
+                    for (let i = 0; i < json.length; i++) {
+                        const rowStr = json[i].map(c => String(c).toLowerCase().trim()).join(' ');
+                        if ((rowStr.includes('numero') || rowStr.includes('número')) && (rowStr.includes('emisor') || rowStr.includes('venta'))) {
+                            headerRowIdx = i;
+                            break;
+                        }
+                    }
+
+                    if (headerRowIdx === -1) {
+                        alert('No se detectó el encabezado de ARCA / AFIP.');
+                        return;
+                    }
+
+                    // Posiciones absolutas comprobadas del formato de Mis Comprobantes de AFIP
+                    const fechaIdx = 0;
+                    const tipoIdx = 1;
+                    const pvIdx = 2;
+                    const numIdx = 4;
+                    const cuitIdx = 7;     // Nro. Doc. Emisor (CUIT)
+                    const emisorIdx = 8;   // Denominación Emisor (Nombre / Razón Social)
+                    const totalIdx = 29;   // Imp. Total
+
+                    listArca = [];
+                    for (let r = headerRowIdx + 1; r < json.length; r++) {
+                        const row = json[r];
+                        if (row[numIdx] === '' || row[numIdx] === undefined) continue;
+
+                        const num = padDigits(row[numIdx], 8);
+                        const pv = padDigits(row[pvIdx] || 1, 5);
+                        const tipo = String(row[tipoIdx] || '').trim();
+                        
+                        const rawCuit = String(row[cuitIdx] || '');
+                        const cuit = extractCuit(rawCuit);
+                        const emisor = String(row[emisorIdx] || '').trim();
+                        
+                        const total = parseSmartAmount(row[totalIdx]);
+                        const fecha = formatDateClean(row[fechaIdx]);
+
+                        listArca.push({
+                            fecha: fecha, tipo: tipo, pv: pv, num: num, cuit: cuit, emisor: emisor, total: total, key: `${pv}_${num}`
+                        });
+                    }
+
+                    document.getElementById('arcaCount').innerText = listArca.length;
+                    document.getElementById('arcaInfo').classList.remove('hidden');
+                    document.getElementById('arcaStatusBadge').className = "text-[11px] px-2 py-0.5 rounded font-bold bg-blue-100 text-blue-800";
+                    document.getElementById('arcaStatusBadge').innerText = "Cargado ✓";
+
+                    runComparison();
+                } catch (err) {
+                    console.error(err);
+                    alert('Error procesando ARCA.');
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        // --- COMPARACIÓN ---
+        function runComparison() {
+            if (listHolistor.length === 0 && listArca.length === 0) return;
+
+            const matchedHolistorSet = new Set();
+            const matchedArcaSet = new Set();
+            const matchedPairs = [];
+
+            listArca.forEach((arcaItem, arcaIdx) => {
+                listHolistor.forEach((holItem, holIdx) => {
+                    if (matchedHolistorSet.has(holIdx)) return;
+
+                    if (arcaItem.key === holItem.key) {
+                        matchedHolistorSet.add(holIdx);
+                        matchedArcaSet.add(arcaIdx);
+                        matchedPairs.push({ arca: arcaItem, holistor: holItem });
+                    }
+                });
+            });
+
+            const onlyArcaList = listArca.filter((_, idx) => !matchedArcaSet.has(idx));
+            const onlyHolistorList = listHolistor.filter((_, idx) => !matchedHolistorSet.has(idx));
+
+            document.getElementById('cardArcaTotal').innerText = listArca.length;
+            document.getElementById('cardHolistorTotal').innerText = listHolistor.length;
+            document.getElementById('cardMatched').innerText = matchedPairs.length;
+            document.getElementById('cardDiff').innerText = onlyArcaList.length + onlyHolistorList.length;
+
+            document.getElementById('cntMatched').innerText = matchedPairs.length;
+            document.getElementById('cntOnlyArca').innerText = onlyArcaList.length;
+            document.getElementById('cntOnlyHolistor').innerText = onlyHolistorList.length;
+
+            renderTable(matchedPairs, onlyArcaList, onlyHolistorList);
+        }
+
+        function renderTable(matchedPairs, onlyArcaList, onlyHolistorList) {
+            const tbody = document.getElementById('reconciliationTbody');
+            let html = '';
+
+            matchedPairs.forEach(pair => {
+                html += `
+                <tr class="text-[11px] border-b border-emerald-200/60 divide-x divide-slate-200 bg-emerald-50/70 hover:bg-emerald-100/70 transition">
+                    <!-- ARCA -->
+                    <td class="p-2 font-medium text-slate-700">${pair.arca.fecha}</td>
+                    <td class="p-2 font-semibold text-slate-800">${pair.arca.tipo}</td>
+                    <td class="p-2 font-bold text-emerald-900">${pair.arca.pv}-${pair.arca.num}</td>
+                    <td class="p-2 font-mono text-slate-700 font-bold">${pair.arca.cuit}</td>
+                    <td class="p-2 font-sans font-medium text-slate-800 truncate max-w-[180px]" title="${pair.arca.emisor}">${pair.arca.emisor}</td>
+                    <td class="p-2 text-right font-bold text-emerald-800">$ ${formatNumber(pair.arca.total)}</td>
+                    <!-- HOLISTOR -->
+                    <td class="p-2 font-medium text-slate-700">${pair.holistor.fecha}</td>
+                    <td class="p-2 font-semibold text-slate-800">${pair.holistor.tipo}</td>
+                    <td class="p-2 font-bold text-emerald-900">${pair.holistor.pv}-${pair.holistor.num}</td>
+                    <td class="p-2 font-mono text-slate-700 font-bold">${pair.holistor.cuit}</td>
+                    <td class="p-2 font-sans font-medium text-slate-800 truncate max-w-[180px]" title="${pair.holistor.prov}">${pair.holistor.prov}</td>
+                    <td class="p-2 text-right font-bold text-emerald-800">$ ${formatNumber(pair.holistor.total)}</td>
+                </tr>`;
+            });
+
+            onlyArcaList.forEach(arcaItem => {
+                html += `
+                <tr class="text-[11px] border-b border-red-200/60 divide-x divide-slate-200 hover:bg-slate-50 transition">
+                    <!-- ARCA -->
+                    <td class="p-2 font-medium text-slate-700 bg-red-50/80">${arcaItem.fecha}</td>
+                    <td class="p-2 font-semibold text-slate-800 bg-red-50/80">${arcaItem.tipo}</td>
+                    <td class="p-2 font-bold text-red-900 bg-red-50/80">${arcaItem.pv}-${arcaItem.num}</td>
+                    <td class="p-2 font-mono text-slate-800 font-bold bg-red-50/80">${arcaItem.cuit}</td>
+                    <td class="p-2 font-sans font-medium text-slate-800 truncate max-w-[180px] bg-red-50/80" title="${arcaItem.emisor}">${arcaItem.emisor}</td>
+                    <td class="p-2 text-right font-bold text-red-700 bg-red-50/80">$ ${formatNumber(arcaItem.total)}</td>
+                    <!-- HOLISTOR -->
+                    <td class="p-2 text-center text-slate-300 bg-white">-</td>
+                    <td class="p-2 text-center text-slate-300 bg-white">-</td>
+                    <td class="p-2 text-center text-slate-300 bg-white font-sans italic text-[10px]">No cargado</td>
+                    <td class="p-2 text-center text-slate-300 bg-white">-</td>
+                    <td class="p-2 text-center text-slate-300 bg-white">-</td>
+                    <td class="p-2 text-center text-slate-300 bg-white">-</td>
+                </tr>`;
+            });
+
+            onlyHolistorList.forEach(holItem => {
+                html += `
+                <tr class="text-[11px] border-b border-amber-200/60 divide-x divide-slate-200 hover:bg-slate-50 transition">
+                    <!-- ARCA -->
+                    <td class="p-2 text-center text-slate-300 bg-white">-</td>
+                    <td class="p-2 text-center text-slate-300 bg-white">-</td>
+                    <td class="p-2 text-center text-slate-300 bg-white font-sans italic text-[10px]">Sin registro AFIP</td>
+                    <td class="p-2 text-center text-slate-300 bg-white">-</td>
+                    <td class="p-2 text-center text-slate-300 bg-white">-</td>
+                    <td class="p-2 text-center text-slate-300 bg-white">-</td>
+                    <!-- HOLISTOR -->
+                    <td class="p-2 font-medium text-slate-700 bg-amber-50/90">${holItem.fecha}</td>
+                    <td class="p-2 font-semibold text-slate-800 bg-amber-50/90">${holItem.tipo}</td>
+                    <td class="p-2 font-bold text-amber-900 bg-amber-50/90">${holItem.pv}-${holItem.num}</td>
+                    <td class="p-2 font-mono text-slate-800 font-bold bg-amber-50/90">${holItem.cuit}</td>
+                    <td class="p-2 font-sans font-medium text-slate-800 truncate max-w-[180px] bg-amber-50/90" title="${holItem.prov}">${holItem.prov}</td>
+                    <td class="p-2 text-right font-bold text-amber-800 bg-amber-50/90">$ ${formatNumber(holItem.total)}</td>
+                </tr>`;
+            });
+
+            tbody.innerHTML = html;
+        }
+
+        function resetAllData() {
+            listHolistor = [];
+            listArca = [];
+            document.getElementById('holistorInfo').classList.add('hidden');
+            document.getElementById('arcaInfo').classList.add('hidden');
+            document.getElementById('holistorStatusBadge').className = "text-[11px] px-2 py-0.5 rounded font-bold bg-slate-100 text-slate-500";
+            document.getElementById('holistorStatusBadge').innerText = "Pendiente";
+            document.getElementById('arcaStatusBadge').className = "text-[11px] px-2 py-0.5 rounded font-bold bg-slate-100 text-slate-500";
+            document.getElementById('arcaStatusBadge').innerText = "Pendiente";
+
+            document.getElementById('cardArcaTotal').innerText = '0';
+            document.getElementById('cardHolistorTotal').innerText = '0';
+            document.getElementById('cardMatched').innerText = '0';
+            document.getElementById('cardDiff').innerText = '0';
+
+            document.getElementById('cntMatched').innerText = '0';
+            document.getElementById('cntOnlyArca').innerText = '0';
+            document.getElementById('cntOnlyHolistor').innerText = '0';
+
+            document.getElementById('reconciliationTbody').innerHTML = `
+                <tr>
+                    <td colspan="12" class="p-8 text-center text-slate-400 font-sans italic">
+                        Cargar ambas planillas para visualizar la conciliación automática.
+                    </td>
+                </tr>`;
+        }
+    </script>
+</body>
+</html>
