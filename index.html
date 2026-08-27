@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Extractor y Conciliador de Facturas ARCA (AFIP)</title>
+    <title>Extractor y Conciliador de Facturas ARCA (AFIP) + Holistor</title>
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- FontAwesome CDN -->
@@ -15,34 +15,14 @@
     <!-- SheetJS CDN -->
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <style>
-        .drop-zone {
-            border: 2px dashed #3b82f6;
-            transition: all 0.3s ease;
-        }
-        .drop-zone.dragover {
-            background-color: #eff6ff;
-            border-color: #1d4ed8;
-        }
-        .custom-scrollbar::-webkit-scrollbar {
-            width: 6px;
-            height: 6px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-track {
-            background: #f1f5f9;
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb {
-            background: #cbd5e1;
-            border-radius: 3px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-            background: #94a3b8;
-        }
-        .bg-incomplete {
-            background-color: #fffbebf5 !important;
-        }
-        .bg-duplicate {
-            background-color: #fef2f2f5 !important;
-        }
+        .drop-zone { border: 2px dashed #3b82f6; transition: all 0.3s ease; }
+        .drop-zone.dragover { background-color: #eff6ff; border-color: #1d4ed8; }
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: #f1f5f9; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        .bg-incomplete { background-color: #fffbebf5 !important; }
+        .bg-duplicate { background-color: #fef2f2f5 !important; }
     </style>
 </head>
 <body class="bg-slate-50 min-h-screen font-sans text-slate-800 pb-12">
@@ -56,7 +36,7 @@
                 </div>
                 <div>
                     <h1 class="font-bold text-lg leading-tight">Extractor & Conciliador de Facturas</h1>
-                    <p class="text-xs text-slate-400">Tipo A, B, C, Tickets | Control Mensual & Conciliación ARCA</p>
+                    <p class="text-xs text-slate-400">PDF Escaneados + Excel Holistor vs. Excel ARCA</p>
                 </div>
             </div>
             
@@ -77,10 +57,10 @@
         <!-- Tab Controls -->
         <div class="flex border-b border-slate-200 mb-6 bg-white rounded-t-lg px-4 pt-2 shadow-sm">
             <button id="tabBtnExtract" onclick="switchTab('extract')" class="py-3 px-5 font-semibold text-sm border-b-2 border-blue-600 text-blue-600 flex items-center gap-2">
-                <i class="fa-solid fa-wand-magic-sparkles"></i> 1. Cargar y Extraer Facturas
+                <i class="fa-solid fa-wand-magic-sparkles"></i> 1. Cargar PDFs / Excel Holistor
             </button>
             <button id="tabBtnList" onclick="switchTab('list')" class="py-3 px-5 font-medium text-sm text-slate-500 hover:text-slate-700 border-b-2 border-transparent flex items-center gap-2">
-                <i class="fa-solid fa-list-check"></i> 2. Listado Mensual y Búsqueda (<span id="totalBadgeCount">0</span>)
+                <i class="fa-solid fa-list-check"></i> 2. Base Consolidada Local (<span id="totalBadgeCount">0</span>)
             </button>
             <button id="tabBtnConciliate" onclick="switchTab('conciliate')" class="py-3 px-5 font-medium text-sm text-slate-500 hover:text-slate-700 border-b-2 border-transparent flex items-center gap-2">
                 <i class="fa-solid fa-scale-balanced"></i> 3. Conciliación con ARCA (Excel)
@@ -90,25 +70,33 @@
         <!-- SECTION 1: EXTRACTION & CARGA -->
         <div id="tabExtract" class="space-y-6">
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <!-- Drop Zone & Processing -->
+                <!-- Drop Zone & Holistor Upload -->
                 <div class="lg:col-span-1 space-y-4">
-                    <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200">
-                        <h2 class="font-bold text-slate-800 mb-2 flex items-center gap-2">
-                            <i class="fa-solid fa-cloud-arrow-up text-blue-500"></i> Carga de Archivos
+                    <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 space-y-4">
+                        <h2 class="font-bold text-slate-800 flex items-center gap-2">
+                            <i class="fa-solid fa-cloud-arrow-up text-blue-500"></i> Carga de Comprobantes
                         </h2>
-                        <p class="text-xs text-slate-500 mb-4">Arrastrá o haz clic para seleccionar comprobantes en PDF (Facturas A, B, C, Tickets).</p>
                         
-                        <div id="dropZone" class="drop-zone p-6 rounded-xl text-center cursor-pointer bg-slate-50 hover:bg-blue-50/50">
+                        <!-- Dropzone PDFs -->
+                        <div id="dropZone" class="drop-zone p-5 rounded-xl text-center cursor-pointer bg-slate-50 hover:bg-blue-50/50">
                             <input type="file" id="fileInput" multiple accept=".pdf,.jpg,.jpeg,.png" class="hidden" onchange="handleFileSelect(event)">
-                            <i class="fa-solid fa-file-pdf text-4xl text-blue-500 mb-2"></i>
-                            <p class="text-sm font-semibold text-slate-700">Haz clic o arrastra comprobantes aquí</p>
-                            <p class="text-xs text-slate-400 mt-1">Soporta PDF comprobantes AFIP, MercadoLibre, e imágenes</p>
+                            <i class="fa-solid fa-file-pdf text-3xl text-blue-500 mb-1"></i>
+                            <p class="text-xs font-semibold text-slate-700">Arrastra PDFs o fotos de facturas aquí</p>
                         </div>
 
-                        <div id="processingStatus" class="mt-4 hidden bg-blue-50 border border-blue-200 rounded-lg p-3">
+                        <!-- Botón Holistor -->
+                        <div class="border-t border-slate-100 pt-3">
+                            <label class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 px-3 rounded-lg shadow transition flex items-center justify-center gap-2 text-xs cursor-pointer">
+                                <i class="fa-solid fa-file-excel text-base"></i> Cargar Reporte IVA Compras (Holistor)
+                                <input type="file" id="holistorExcelInput" accept=".xlsx,.xls" class="hidden" onchange="handleHolistorExcelUpload(event)">
+                            </label>
+                            <p class="text-[11px] text-slate-400 mt-1 text-center">Integra automáticamente planillas de Holistor deduplicando comprobantes.</p>
+                        </div>
+
+                        <div id="processingStatus" class="mt-2 hidden bg-blue-50 border border-blue-200 rounded-lg p-3">
                             <div class="flex items-center space-x-3">
                                 <div class="animate-spin text-blue-600 text-lg"><i class="fa-solid fa-circle-notch"></i></div>
-                                <div class="text-xs text-blue-800 font-medium" id="statusMessage">Procesando archivo...</div>
+                                <div class="text-xs text-blue-800 font-medium" id="statusMessage">Procesando...</div>
                             </div>
                             <div class="w-full bg-blue-200 rounded-full h-1.5 mt-2 overflow-hidden">
                                 <div id="progressBar" class="bg-blue-600 h-1.5 rounded-full" style="width: 0%"></div>
@@ -119,23 +107,23 @@
                     <!-- Manual Data Form -->
                     <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200">
                         <div class="flex justify-between items-center mb-3">
-                            <h2 class="font-bold text-slate-800 text-sm flex items-center gap-2">
-                                <i class="fa-solid fa-pen-to-square text-amber-500"></i> Formulario de Carga / Edición
+                            <h2 class="font-bold text-slate-800 text-xs flex items-center gap-2">
+                                <i class="fa-solid fa-pen-to-square text-amber-500"></i> Carga / Edición Manual
                             </h2>
                             <button onclick="resetForm()" class="text-xs text-slate-400 hover:text-slate-600">Limpiar</button>
                         </div>
                         
-                        <form id="invoiceForm" onsubmit="saveInvoiceFromForm(event)" class="space-y-3 text-xs">
+                        <form id="invoiceForm" onsubmit="saveInvoiceFromForm(event)" class="space-y-2.5 text-xs">
                             <input type="hidden" id="formEditId" value="">
                             <div>
-                                <label class="block font-semibold text-slate-600 mb-1">Fecha de Emisión</label>
-                                <input type="date" id="formFecha" required class="w-full border border-slate-300 rounded p-1.5 focus:ring-1 focus:ring-blue-500">
+                                <label class="block font-semibold text-slate-600 mb-0.5">Fecha de Emisión</label>
+                                <input type="date" id="formFecha" required class="w-full border border-slate-300 rounded p-1.5">
                             </div>
 
                             <div class="grid grid-cols-2 gap-2">
                                 <div>
-                                    <label class="block font-semibold text-slate-600 mb-1">Tipo Comprobante</label>
-                                    <select id="formTipo" required class="w-full border border-slate-300 rounded p-1.5 focus:ring-1 focus:ring-blue-500">
+                                    <label class="block font-semibold text-slate-600 mb-0.5">Tipo</label>
+                                    <select id="formTipo" required class="w-full border border-slate-300 rounded p-1.5">
                                         <option value="Factura A">Factura A</option>
                                         <option value="Factura B">Factura B</option>
                                         <option value="Factura C">Factura C</option>
@@ -147,45 +135,34 @@
                                     </select>
                                 </div>
                                 <div>
-                                    <label class="block font-semibold text-slate-600 mb-1">Punto de Venta</label>
-                                    <input type="text" id="formPuntoVenta" placeholder="00001" required class="w-full border border-slate-300 rounded p-1.5 focus:ring-1 focus:ring-blue-500">
+                                    <label class="block font-semibold text-slate-600 mb-0.5">P. Venta</label>
+                                    <input type="text" id="formPuntoVenta" placeholder="00001" required class="w-full border border-slate-300 rounded p-1.5">
                                 </div>
                             </div>
 
                             <div class="grid grid-cols-2 gap-2">
                                 <div>
-                                    <label class="block font-semibold text-slate-600 mb-1">N° Comprobante</label>
-                                    <input type="text" id="formNumero" placeholder="00000001" required class="w-full border border-slate-300 rounded p-1.5 focus:ring-1 focus:ring-blue-500">
+                                    <label class="block font-semibold text-slate-600 mb-0.5">N° Comprobante</label>
+                                    <input type="text" id="formNumero" placeholder="00000001" required class="w-full border border-slate-300 rounded p-1.5">
                                 </div>
                                 <div>
-                                    <label class="block font-semibold text-slate-600 mb-1">Importe Total ($)</label>
-                                    <input type="number" step="0.01" id="formImporte" placeholder="0.00" required class="w-full border border-slate-300 rounded p-1.5 focus:ring-1 focus:ring-blue-500 font-mono font-bold text-slate-900">
+                                    <label class="block font-semibold text-slate-600 mb-0.5">Importe Total ($)</label>
+                                    <input type="number" step="0.01" id="formImporte" placeholder="0.00" required class="w-full border border-slate-300 rounded p-1.5 font-bold">
                                 </div>
                             </div>
 
                             <div>
-                                <label class="block font-semibold text-slate-600 mb-1">Nombre / Razón Social Emisor</label>
-                                <input type="text" id="formEmisor" placeholder="Empresa S.A." required class="w-full border border-slate-300 rounded p-1.5 focus:ring-1 focus:ring-blue-500">
+                                <label class="block font-semibold text-slate-600 mb-0.5">Razón Social Emisor</label>
+                                <input type="text" id="formEmisor" placeholder="Razón Social (CUIT)" required class="w-full border border-slate-300 rounded p-1.5">
                             </div>
 
                             <div>
-                                <label class="block font-semibold text-slate-600 mb-1">CUIT del Emisor</label>
-                                <input type="text" id="formCuit" placeholder="30-12345678-9" required class="w-full border border-slate-300 rounded p-1.5 focus:ring-1 focus:ring-blue-500">
+                                <label class="block font-semibold text-slate-600 mb-0.5">CUIT del Emisor</label>
+                                <input type="text" id="formCuit" placeholder="30-12345678-9" required class="w-full border border-slate-300 rounded p-1.5">
                             </div>
 
-                            <div class="grid grid-cols-2 gap-2">
-                                <div>
-                                    <label class="block font-semibold text-slate-600 mb-1">CAE</label>
-                                    <input type="text" id="formCae" placeholder="14 dígitos" class="w-full border border-slate-300 rounded p-1.5 focus:ring-1 focus:ring-blue-500">
-                                </div>
-                                <div>
-                                    <label class="block font-semibold text-slate-600 mb-1">Vencimiento CAE</label>
-                                    <input type="date" id="formVencCae" class="w-full border border-slate-300 rounded p-1.5 focus:ring-1 focus:ring-blue-500">
-                                </div>
-                            </div>
-
-                            <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded shadow transition flex items-center justify-center gap-2 mt-2">
-                                <i class="fa-solid fa-save"></i> Guardar / Actualizar Factura
+                            <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 rounded shadow transition flex items-center justify-center gap-2 mt-1">
+                                <i class="fa-solid fa-save"></i> Guardar / Actualizar
                             </button>
                         </form>
                     </div>
@@ -199,7 +176,7 @@
                                 <h2 class="font-bold text-slate-800 flex items-center gap-2">
                                     <i class="fa-solid fa-receipt text-green-600"></i> Comprobantes Recientemente Extraídos
                                 </h2>
-                                <p class="text-xs text-slate-500">Verifica los datos detectados o edítalos en 1 clic si falta algún dato.</p>
+                                <p class="text-xs text-slate-500">Muestra facturas procesadas por PDF o Holistor en la sesión activa.</p>
                             </div>
                             <button onclick="clearPendingList()" class="text-xs bg-slate-100 hover:bg-slate-200 text-slate-600 px-3 py-1 rounded">
                                 Limpiar Recientes
@@ -209,8 +186,7 @@
                         <div id="pendingContainer" class="space-y-3 max-h-[600px] overflow-y-auto custom-scrollbar pr-1">
                             <div class="text-center py-12 text-slate-400 border border-dashed rounded-xl bg-slate-50">
                                 <i class="fa-regular fa-folder-open text-3xl mb-2"></i>
-                                <p class="text-sm">No hay comprobantes escaneados en esta sesión.</p>
-                                <p class="text-xs">Sube archivos PDF arriba para extraer sus datos automáticamente.</p>
+                                <p class="text-sm">No hay comprobantes cargados en esta sesión.</p>
                             </div>
                         </div>
                     </div>
@@ -225,17 +201,17 @@
                 <div class="flex flex-wrap items-center justify-between gap-4 border-b border-slate-100 pb-4">
                     <div class="flex items-center space-x-3">
                         <label class="font-semibold text-xs text-slate-500 uppercase tracking-wider">Filtrar por Mes:</label>
-                        <select id="monthFilter" onchange="filterAndRenderInvoices()" class="border border-slate-300 rounded-lg px-3 py-1.5 text-sm font-semibold bg-slate-50 text-slate-800 focus:ring-2 focus:ring-blue-500">
+                        <select id="monthFilter" onchange="filterAndRenderInvoices()" class="border border-slate-300 rounded-lg px-3 py-1.5 text-sm font-semibold bg-slate-50 text-slate-800">
                             <option value="ALL">Todos los meses</option>
                         </select>
                     </div>
 
                     <div class="flex items-center space-x-2">
                         <button onclick="exportToExcel()" class="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs px-3.5 py-2 rounded-lg shadow-sm transition flex items-center gap-1.5">
-                            <i class="fa-solid fa-file-excel text-sm"></i> Exportar a Excel Profesional (.xlsx)
+                            <i class="fa-solid fa-file-excel text-sm"></i> Exportar a Excel (.xlsx)
                         </button>
                         <button onclick="clearAllData()" class="bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 font-semibold text-xs px-3 py-2 rounded-lg transition flex items-center gap-1">
-                            <i class="fa-solid fa-trash-can"></i> Vaciar Base
+                            <i class="fa-solid fa-trash-can"></i> Vaciar Base Consolidada
                         </button>
                     </div>
                 </div>
@@ -244,19 +220,19 @@
                 <div class="grid grid-cols-1 md:grid-cols-4 gap-3 text-xs">
                     <div>
                         <label class="block text-slate-500 mb-1 font-medium">Búsqueda General (Proveedor / CUIT)</label>
-                        <input type="text" id="searchGeneral" oninput="filterAndRenderInvoices()" placeholder="Ej: FIRST LABEL, 307166..." class="w-full border border-slate-300 rounded-lg p-2 focus:ring-1 focus:ring-blue-500">
+                        <input type="text" id="searchGeneral" oninput="filterAndRenderInvoices()" placeholder="Ej: FIRST LABEL, 307166..." class="w-full border border-slate-300 rounded-lg p-2">
                     </div>
                     <div>
                         <label class="block text-slate-500 mb-1 font-medium">Fecha Específica</label>
-                        <input type="date" id="searchFecha" onchange="filterAndRenderInvoices()" class="w-full border border-slate-300 rounded-lg p-2 focus:ring-1 focus:ring-blue-500">
+                        <input type="date" id="searchFecha" onchange="filterAndRenderInvoices()" class="w-full border border-slate-300 rounded-lg p-2">
                     </div>
                     <div>
                         <label class="block text-slate-500 mb-1 font-medium">Monto Mínimo ($)</label>
-                        <input type="number" step="0.01" id="searchMontoMin" oninput="filterAndRenderInvoices()" placeholder="0.00" class="w-full border border-slate-300 rounded-lg p-2 focus:ring-1 focus:ring-blue-500">
+                        <input type="number" step="0.01" id="searchMontoMin" oninput="filterAndRenderInvoices()" placeholder="0.00" class="w-full border border-slate-300 rounded-lg p-2">
                     </div>
                     <div>
                         <label class="block text-slate-500 mb-1 font-medium">Monto Máximo ($)</label>
-                        <input type="number" step="0.01" id="searchMontoMax" oninput="filterAndRenderInvoices()" placeholder="9999999..." class="w-full border border-slate-300 rounded-lg p-2 focus:ring-1 focus:ring-blue-500">
+                        <input type="number" step="0.01" id="searchMontoMax" oninput="filterAndRenderInvoices()" placeholder="9999999..." class="w-full border border-slate-300 rounded-lg p-2">
                     </div>
                 </div>
             </div>
@@ -265,7 +241,7 @@
             <div class="grid grid-cols-1 sm:grid-cols-4 gap-4">
                 <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
                     <div>
-                        <p class="text-xs font-medium text-slate-500">Comprobantes Filtrados</p>
+                        <p class="text-xs font-medium text-slate-500">Base Consolidada</p>
                         <p id="statTotalCount" class="text-2xl font-bold text-slate-900 mt-1">0</p>
                     </div>
                     <div class="bg-blue-50 text-blue-600 p-3 rounded-lg"><i class="fa-solid fa-file-invoice text-xl"></i></div>
@@ -293,13 +269,6 @@
                 </div>
             </div>
 
-            <!-- Leyenda explicativa -->
-            <div class="flex flex-wrap items-center gap-4 text-xs font-medium bg-white p-3 rounded-xl border border-slate-200">
-                <span class="text-slate-500">Referencias de color:</span>
-                <span class="flex items-center gap-1 text-red-700 bg-red-100 px-2.5 py-1 rounded"><i class="fa-solid fa-copy"></i> Factura Repetida / Duplicada</span>
-                <span class="flex items-center gap-1 text-amber-800 bg-amber-100 px-2.5 py-1 rounded"><i class="fa-solid fa-pen"></i> Datos Faltantes (Hacé clic en la lapicera para completar)</span>
-            </div>
-
             <!-- Invoice Table -->
             <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
                 <div class="overflow-x-auto custom-scrollbar">
@@ -311,21 +280,15 @@
                                 <th class="p-3">Tipo</th>
                                 <th class="p-3">P. Venta</th>
                                 <th class="p-3">N° Comprobante</th>
-                                <th class="p-3">Emisor / Razon Social</th>
+                                <th class="p-3">Emisor / Razón Social</th>
                                 <th class="p-3">CUIT</th>
                                 <th class="p-3 text-right">Importe Total</th>
-                                <th class="p-3">CAE</th>
-                                <th class="p-3">Venc. CAE</th>
                                 <th class="p-3 text-center">Acciones</th>
                             </tr>
                         </thead>
                         <tbody id="invoiceTableBody" class="divide-y divide-slate-100 text-slate-700">
                         </tbody>
                     </table>
-                </div>
-                <div id="emptyTableNotice" class="p-8 text-center text-slate-400 hidden">
-                    <i class="fa-solid fa-magnifying-glass text-3xl mb-2"></i>
-                    <p>No se encontraron facturas que coincidan con los filtros aplicados.</p>
                 </div>
             </div>
         </div>
@@ -336,161 +299,102 @@
                 <h2 class="font-bold text-slate-800 text-lg mb-1 flex items-center gap-2">
                     <i class="fa-solid fa-scale-balanced text-indigo-600"></i> Módulo de Conciliación con ARCA (AFIP)
                 </h2>
-                <p class="text-xs text-slate-500 mb-6">Carga el reporte Excel consolidado emitido por ARCA ("Mis Comprobantes") para cruzar información con las facturas cargadas en el sistema.</p>
+                <p class="text-xs text-slate-500 mb-6">Cruza la **Base Consolidada Local** (PDFs + Holistor) contra el Excel oficial de **Mis Comprobantes Recibidos de ARCA**.</p>
 
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
                     <div class="border-2 border-dashed border-indigo-200 bg-indigo-50/50 p-6 rounded-xl text-center">
-                        <i class="fa-solid fa-file-excel text-4xl text-emerald-600 mb-3"></i>
+                        <i class="fa-solid fa-file-excel text-4xl text-indigo-600 mb-3"></i>
                         <h3 class="font-bold text-sm text-slate-800">Selecciona el Excel de ARCA</h3>
-                        <p class="text-xs text-slate-500 my-2">Archivo con columnas: Tipo de comprobante, Punto de venta, Numero de comprobante, CUIT del EMISOR, etc.</p>
+                        <p class="text-xs text-slate-500 my-2">Archivo descargado de AFIP ("Mis Comprobantes Recibidos - ARCA.xlsx")</p>
                         <input type="file" id="arcaExcelInput" accept=".xlsx,.xls" class="hidden" onchange="handleArcaExcelUpload(event)">
-                        <button onclick="document.getElementById('arcaExcelInput').click()" class="mt-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold py-2 px-4 rounded-lg shadow transition">
-                            <i class="fa-solid fa-upload me-1"></i> Cargar Excel Consolidado
+                        <button onclick="document.getElementById('arcaExcelInput').click()" class="mt-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold py-2.5 px-5 rounded-lg shadow transition">
+                            <i class="fa-solid fa-upload me-1"></i> Cargar Excel ARCA y Conciliar
                         </button>
                     </div>
 
                     <div id="arcaSummaryCard" class="bg-slate-50 p-5 rounded-xl border border-slate-200 text-xs space-y-2">
-                        <p class="font-bold text-slate-700 uppercase tracking-wider">Estado de la Conciliación</p>
+                        <p class="font-bold text-slate-700 uppercase tracking-wider">Resumen General del Cruce</p>
                         <div class="flex justify-between py-1 border-b border-slate-200">
-                            <span class="text-slate-500">Facturas en ARCA:</span>
+                            <span class="text-slate-500">Facturas en Reporte ARCA:</span>
                             <span id="arcaTotalCount" class="font-bold text-slate-800">0</span>
                         </div>
                         <div class="flex justify-between py-1 border-b border-slate-200">
-                            <span class="text-slate-500">Facturas en Sistema Local:</span>
+                            <span class="text-slate-500">Facturas en Base Consolidada Local (PDF + Holistor):</span>
                             <span id="localTotalCount" class="font-bold text-slate-800">0</span>
                         </div>
                         <div class="flex justify-between py-1 border-b border-slate-200 text-emerald-700">
-                            <span class="font-medium">Coinciden (Conciliadas):</span>
+                            <span class="font-medium">Coinciden en ambos (Conciliadas):</span>
                             <span id="matchedCount" class="font-bold">0</span>
                         </div>
-                        <div class="flex justify-between py-1 text-red-600">
-                            <span class="font-medium">Faltantes en Carga Local:</span>
-                            <span id="missingLocalCount" class="font-bold">0</span>
-                        </div>
-                        <div class="flex justify-between py-1 text-amber-600">
-                            <span class="font-medium">Faltantes en ARCA (No registradas):</span>
+                        <div class="flex justify-between py-1 text-amber-700">
+                            <span class="font-medium">Cargadas Localmente pero FALTAN EN ARCA (Listado A):</span>
                             <span id="missingArcaCount" class="font-bold">0</span>
+                        </div>
+                        <div class="flex justify-between py-1 text-red-600">
+                            <span class="font-medium">Registradas en ARCA pero FALTAN CARGAR LOCAL (Listado B):</span>
+                            <span id="missingLocalCount" class="font-bold">0</span>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <!-- Reconciliation Results Tabs / Table -->
-            <div id="reconcileResultsContainer" class="hidden space-y-4">
-                <div class="flex space-x-2 border-b border-slate-200 pb-2">
-                    <button onclick="setReconcileFilter('all')" id="recTabAll" class="px-3 py-1.5 text-xs font-bold rounded-lg bg-indigo-600 text-white">Todos</button>
-                    <button onclick="setReconcileFilter('matched')" id="recTabMatched" class="px-3 py-1.5 text-xs font-medium rounded-lg bg-slate-200 text-slate-700 hover:bg-slate-300">Conciliadas</button>
-                    <button onclick="setReconcileFilter('missing_local')" id="recTabMissingLocal" class="px-3 py-1.5 text-xs font-medium rounded-lg bg-slate-200 text-slate-700 hover:bg-slate-300">Faltan Cargar Localmente</button>
-                    <button onclick="setReconcileFilter('missing_arca')" id="recTabMissingArca" class="px-3 py-1.5 text-xs font-medium rounded-lg bg-slate-200 text-slate-700 hover:bg-slate-300">Faltan en Excel ARCA</button>
-                </div>
-
-                <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+            <!-- Reconciliation Output: 2 Clean Tables -->
+            <div id="reconcileResultsContainer" class="hidden space-y-8">
+                
+                <!-- LISTADO A -->
+                <div class="bg-white rounded-xl shadow-sm border border-amber-200 overflow-hidden">
+                    <div class="bg-amber-500 text-white px-5 py-3 flex justify-between items-center">
+                        <h3 class="font-bold text-sm flex items-center gap-2">
+                            <i class="fa-solid fa-triangle-exclamation"></i> LISTADO A: Facturas cargadas localmente / Holistor que FALTAN EN ARCA
+                        </h3>
+                        <span class="text-xs bg-amber-600 px-2.5 py-1 rounded font-bold">Sin registro en AFIP/ARCA</span>
+                    </div>
                     <div class="overflow-x-auto custom-scrollbar">
                         <table class="w-full text-left text-xs border-collapse">
                             <thead>
-                                <tr class="bg-slate-100 text-slate-600 font-semibold uppercase tracking-wider border-b border-slate-200">
-                                    <th class="p-3">Estado</th>
-                                    <th class="p-3">Comprobante</th>
-                                    <th class="p-3">P. Venta - N°</th>
-                                    <th class="p-3">Emisor / CUIT</th>
-                                    <th class="p-3 text-right">Monto Local</th>
-                                    <th class="p-3 text-right">Monto ARCA</th>
-                                    <th class="p-3">Detalle</th>
+                                <tr class="bg-amber-50 text-amber-900 font-semibold uppercase tracking-wider border-b border-amber-200">
+                                    <th class="p-2.5">Fecha</th>
+                                    <th class="p-2.5">Tipo</th>
+                                    <th class="p-2.5">P. Venta - N° Comprobante</th>
+                                    <th class="p-2.5">Emisor / Razón Social</th>
+                                    <th class="p-2.5 text-right">Importe Total Local</th>
                                 </tr>
                             </thead>
-                            <tbody id="reconcileTableBody" class="divide-y divide-slate-100 text-slate-700">
+                            <tbody id="tableBodyMissingArca" class="divide-y divide-slate-100 text-slate-700">
                             </tbody>
                         </table>
                     </div>
                 </div>
+
+                <!-- LISTADO B -->
+                <div class="bg-white rounded-xl shadow-sm border border-red-200 overflow-hidden">
+                    <div class="bg-red-600 text-white px-5 py-3 flex justify-between items-center">
+                        <h3 class="font-bold text-sm flex items-center gap-2">
+                            <i class="fa-solid fa-file-circle-xmark"></i> LISTADO B: Facturas en ARCA que FALTAN CARGAR EN SISTEMA LOCAL / HOLISTOR
+                        </h3>
+                        <span class="text-xs bg-red-700 px-2.5 py-1 rounded font-bold">Faltan ingresar a la empresa</span>
+                    </div>
+                    <div class="overflow-x-auto custom-scrollbar">
+                        <table class="w-full text-left text-xs border-collapse">
+                            <thead>
+                                <tr class="bg-red-50 text-red-900 font-semibold uppercase tracking-wider border-b border-red-200">
+                                    <th class="p-2.5">Fecha</th>
+                                    <th class="p-2.5">Tipo</th>
+                                    <th class="p-2.5">P. Venta - N° Comprobante</th>
+                                    <th class="p-2.5">Emisor / Razón Social (CUIT)</th>
+                                    <th class="p-2.5 text-right">Importe Total ARCA</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tableBodyMissingLocal" class="divide-y divide-slate-100 text-slate-700">
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
             </div>
         </div>
 
-    
-    <!-- Modal de Edición Rápida -->
-    <div id="editModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
-        <div class="bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-lg w-full p-6 space-y-4 relative">
-            <div class="flex justify-between items-center border-b border-slate-100 pb-3">
-                <h3 class="font-bold text-slate-800 text-base flex items-center gap-2">
-                    <i class="fa-solid fa-pen-to-square text-blue-600"></i> Editar Datos de Comprobante
-                </h3>
-                <button onclick="closeEditModal()" class="text-slate-400 hover:text-slate-600 p-1">
-                    <i class="fa-solid fa-xmark text-lg"></i>
-                </button>
-            </div>
-
-            <form id="modalInvoiceForm" onsubmit="saveModalInvoice(event)" class="space-y-3 text-xs">
-                <input type="hidden" id="modalEditId" value="">
-                
-                <div class="grid grid-cols-2 gap-3">
-                    <div>
-                        <label class="block font-semibold text-slate-600 mb-1">Fecha de Emisión</label>
-                        <input type="date" id="modalFecha" class="w-full border border-slate-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500">
-                    </div>
-                    <div>
-                        <label class="block font-semibold text-slate-600 mb-1">Tipo Comprobante</label>
-                        <select id="modalTipo" class="w-full border border-slate-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 font-semibold">
-                            <option value="Factura A">Factura A</option>
-                            <option value="Factura B">Factura B</option>
-                            <option value="Factura C">Factura C</option>
-                            <option value="Tique">Tique / Ticket</option>
-                            <option value="Nota de Crédito A">Nota de Crédito A</option>
-                            <option value="Nota de Crédito B">Nota de Crédito B</option>
-                            <option value="Nota de Crédito C">Nota de Crédito C</option>
-                            <option value="Otro">Otro Comprobante</option>
-                        </select>
-                    </div>
-                </div>
-
-                <div class="grid grid-cols-2 gap-3">
-                    <div>
-                        <label class="block font-semibold text-slate-600 mb-1">Punto de Venta</label>
-                        <input type="text" id="modalPuntoVenta" placeholder="00001" class="w-full border border-slate-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 font-mono">
-                    </div>
-                    <div>
-                        <label class="block font-semibold text-slate-600 mb-1">N° Comprobante</label>
-                        <input type="text" id="modalNumero" placeholder="00000001" class="w-full border border-slate-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 font-mono font-semibold">
-                    </div>
-                </div>
-
-                <div class="grid grid-cols-2 gap-3">
-                    <div>
-                        <label class="block font-semibold text-slate-600 mb-1">CUIT del Emisor</label>
-                        <input type="text" id="modalCuit" placeholder="30-12345678-9" class="w-full border border-slate-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 font-mono">
-                    </div>
-                    <div>
-                        <label class="block font-semibold text-slate-600 mb-1">Importe Total ($)</label>
-                        <input type="number" step="0.01" id="modalImporte" placeholder="0.00" class="w-full border border-slate-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 font-mono font-bold text-slate-900 bg-amber-50">
-                    </div>
-                </div>
-
-                <div>
-                    <label class="block font-semibold text-slate-600 mb-1">Nombre / Razón Social Emisor</label>
-                    <input type="text" id="modalEmisor" placeholder="Razón Social..." class="w-full border border-slate-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 font-semibold">
-                </div>
-
-                <div class="grid grid-cols-2 gap-3">
-                    <div>
-                        <label class="block font-semibold text-slate-600 mb-1">CAE</label>
-                        <input type="text" id="modalCae" placeholder="14 dígitos" class="w-full border border-slate-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 font-mono">
-                    </div>
-                    <div>
-                        <label class="block font-semibold text-slate-600 mb-1">Vencimiento CAE</label>
-                        <input type="date" id="modalVencCae" class="w-full border border-slate-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500">
-                    </div>
-                </div>
-
-                <div class="flex justify-end space-x-2 pt-3 border-t border-slate-100">
-                    <button type="button" onclick="closeEditModal()" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold rounded-lg transition">Cancelar</button>
-                    <button type="submit" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg shadow transition flex items-center gap-1.5">
-                        <i class="fa-solid fa-check"></i> Guardar Cambios
-                    </button>
-                </div>
-            </form>
-        </div>
-    </div>
-
-</main>
+    </main>
 
     <!-- JavaScript Logic -->
     <script>
@@ -498,7 +402,6 @@
         let invoices = [];
         let pendingExtracted = [];
         let arcaInvoices = [];
-        let currentReconcileFilter = 'all';
 
         window.addEventListener('DOMContentLoaded', () => {
             loadInvoicesFromStorage();
@@ -510,11 +413,7 @@
         function loadInvoicesFromStorage() {
             const data = localStorage.getItem(STORAGE_KEY);
             if (data) {
-                try {
-                    invoices = JSON.parse(data);
-                } catch (e) {
-                    invoices = [];
-                }
+                try { invoices = JSON.parse(data); } catch (e) { invoices = []; }
             }
         }
 
@@ -548,43 +447,32 @@
 
         function setupDropZone() {
             const dropZone = document.getElementById('dropZone');
-            
-            ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
-                dropZone.addEventListener(eventName, (e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                }, false);
+            ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eName => {
+                dropZone.addEventListener(eName, (e) => { e.preventDefault(); e.stopPropagation(); }, false);
             });
 
-            ['dragenter', 'dragover'].forEach(eventName => {
-                dropZone.addEventListener(eventName, () => dropZone.classList.add('dragover'), false);
+            ['dragenter', 'dragover'].forEach(eName => {
+                dropZone.addEventListener(eName, () => dropZone.classList.add('dragover'), false);
             });
 
-            ['dragleave', 'drop'].forEach(eventName => {
-                dropZone.addEventListener(eventName, () => dropZone.classList.remove('dragover'), false);
+            ['dragleave', 'drop'].forEach(eName => {
+                dropZone.addEventListener(eName, () => dropZone.classList.remove('dragover'), false);
             });
 
             dropZone.addEventListener('drop', (e) => {
                 const dt = e.dataTransfer;
-                if (dt && dt.files && dt.files.length > 0) {
-                    handleFiles(dt.files);
-                }
+                if (dt && dt.files && dt.files.length > 0) handleFiles(dt.files);
             }, false);
 
-            dropZone.addEventListener('click', () => {
-                document.getElementById('fileInput').click();
-            });
+            dropZone.addEventListener('click', () => document.getElementById('fileInput').click());
         }
 
         function handleFileSelect(e) {
-            if (e.target.files && e.target.files.length > 0) {
-                handleFiles(e.target.files);
-            }
+            if (e.target.files && e.target.files.length > 0) handleFiles(e.target.files);
         }
 
         async function handleFiles(files) {
             if (!files || files.length === 0) return;
-
             showProgress(true, `Procesando ${files.length} archivo(s)...`, 10);
 
             for (let i = 0; i < files.length; i++) {
@@ -604,26 +492,19 @@
 
                     let extractedData;
                     if (isImage || !textContent.trim()) {
-                        // Imagen o archivo sin capa de texto PDF
                         extractedData = {
                             id: 'INV_' + Date.now() + '_' + Math.floor(Math.random()*1000),
                             fecha: new Date().toISOString().split('T')[0],
-                            tipo: 'Factura A',
-                            puntoVenta: '00001',
-                            numero: '00000001',
-                            emisor: file.name.replace(/\.[^/.]+$/, ""),
-                            cuit: '00-00000000-0',
-                            importe: 0,
-                            cae: '',
-                            vencCae: '',
-                            fileName: file.name
+                            tipo: 'Factura A', puntoVenta: '00001', numero: '00000001',
+                            emisor: file.name.replace(/\.[^/.]+$/, ""), cuit: '00-00000000-0',
+                            importe: 0, cae: '', vencCae: '', fileName: file.name
                         };
                     } else {
                         extractedData = parseInvoiceText(textContent, file.name);
                     }
+
                     pendingExtracted.unshift(extractedData);
                     saveInvoiceData(extractedData);
-
                 } catch (err) {
                     console.error('Error procesando archivo:', file.name, err);
                 }
@@ -647,104 +528,64 @@
             }
         }
 
-        // Extractor de PDF
         async function extractTextFromPDF(file) {
             return new Promise((resolve) => {
                 const reader = new FileReader();
                 reader.onload = async function() {
                     try {
                         const typedarray = new Uint8Array(this.result);
-                        if (typeof pdfjsLib !== 'undefined') {
-                            pdfjsLib.GlobalWorkerOptions.workerSrc = '';
-                        }
-                        const loadingTask = pdfjsLib.getDocument({
-                            data: typedarray,
-                            disableWorker: true,
-                            nativeImageDecoderSupport: 'none'
-                        });
-
+                        if (typeof pdfjsLib !== 'undefined') pdfjsLib.GlobalWorkerOptions.workerSrc = '';
+                        const loadingTask = pdfjsLib.getDocument({ data: typedarray, disableWorker: true, nativeImageDecoderSupport: 'none' });
                         const pdf = await loadingTask.promise;
                         let fullText = '';
                         for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
                             const page = await pdf.getPage(pageNum);
                             const content = await page.getTextContent();
-                            const strings = content.items.map(item => item.str);
-                            fullText += strings.join(' ') + '\n';
+                            fullText += content.items.map(item => item.str).join(' ') + '\n';
                         }
 
-                        // Si el texto extraído es muy corto o nulo (PDF escaneado/imagen como Cappelletti), ejecutamos OCR con Tesseract
                         if (fullText.trim().length < 30 && typeof Tesseract !== 'undefined') {
-                            showProgress(true, `Ejecutando OCR (escaneo óptico) en ${file.name}...`, 50);
+                            showProgress(true, `Ejecutando OCR en ${file.name}...`, 50);
                             const page = await pdf.getPage(1);
                             const viewport = page.getViewport({ scale: 2.0 });
                             const canvas = document.createElement('canvas');
                             const context = canvas.getContext('2d');
-                            canvas.height = viewport.height;
-                            canvas.width = viewport.width;
-
+                            canvas.height = viewport.height; canvas.width = viewport.width;
                             await page.render({ canvasContext: context, viewport: viewport }).promise;
-                            const imageDataUrl = canvas.toDataURL('image/png');
-
-                            const ocrResult = await Tesseract.recognize(imageDataUrl, 'spa');
+                            const ocrResult = await Tesseract.recognize(canvas.toDataURL('image/png'), 'spa');
                             fullText = ocrResult.data.text;
                         }
-
                         resolve(fullText);
-                    } catch (e) {
-                        console.error("Falló lectura PDF:", e);
-                        resolve(""); 
-                    }
+                    } catch (e) { resolve(""); }
                 };
                 reader.onerror = () => resolve("");
                 reader.readAsArrayBuffer(file);
             });
         }
 
-        // Parseador mejorado con regex múltiples y detección de emisor por CUIT del receptor (UNI TEC S.A.)
         function parseInvoiceText(text, fileName) {
             let rawText = text.replace(/\r/g, ' ');
-
-            // 1. Normalización de texto
             let lines = rawText.split('\n').map(l => l.trim());
             let singleCharCount = lines.filter(l => l.length === 1).length;
             let cleanText = rawText;
 
             if (lines.length > 15 && (singleCharCount / lines.length) > 0.20) {
-                let norm = '';
-                for (let l of lines) {
-                    if (l.length === 1) norm += l;
-                    else if (l.length === 0) norm += ' ';
-                    else norm += ' ' + l + ' ';
-                }
-                cleanText = norm;
+                cleanText = lines.map(l => l.length === 1 ? l : (l.length === 0 ? ' ' : ' ' + l + ' ')).join('');
             }
 
-            // 2. Tipo de Comprobante
             let tipo = 'Factura A';
-            if (/FACTURA\s+B|COD\.\s*006|FAC\s+B/i.test(cleanText)) {
-                tipo = 'Factura B';
-            } else if (/FACTURA\s+C|COD\.\s*011|FAC\s+C/i.test(cleanText)) {
-                tipo = 'Factura C';
-            } else if (/TIQUE|TICKET/i.test(cleanText)) {
-                tipo = 'Tique';
-            } else if (/NOTA DE CR[EÉ]DITO/i.test(cleanText)) {
-                tipo = 'Nota de Crédito A';
-            }
+            if (/FACTURA\s+B|COD\.\s*006|FAC\s+B/i.test(cleanText)) tipo = 'Factura B';
+            else if (/FACTURA\s+C|COD\.\s*011|FAC\s+C/i.test(cleanText)) tipo = 'Factura C';
+            else if (/TIQUE|TICKET/i.test(cleanText)) tipo = 'Tique';
+            else if (/NOTA DE CR[EÉ]DITO/i.test(cleanText)) tipo = 'Nota de Crédito A';
 
-            // 3. Punto de Venta y Número
-            let pv = '00001';
-            let num = '00000001';
-
+            let pv = '00001', num = '00000001';
             let matchPVNum = cleanText.match(/(?:Punto de Venta|Pto\. Vta)[\s:]*(\d{1,5})[\s\S]*?(?:Comp\. Nro|Nro\. Comp|Número|Nº|N°)[\s:]*(\d{1,8})/i) ||
                              cleanText.match(/(?:FACTURA|FAC|Nº|N°)?\s*:?\s*(\d{4,5})[\s\-]+(\d{5,8})/i) ||
                              cleanText.match(/(\d{4,5})[\s\-]+(\d{5,8})/);
 
-            if (matchPVNum) {
-                pv = matchPVNum[1].padStart(5, '0');
-                num = matchPVNum[2].padStart(8, '0');
-            }
+            if (matchPVNum) { pv = matchPVNum[1].padStart(5, '0'); num = matchPVNum[2].padStart(8, '0'); }
 
-            // 4. CUIT Emisor (Filtrando el CUIT de UNI TEC S.A. 30707283641)
             let cuit = '00-00000000-0';
             let allCuits = [...cleanText.matchAll(/(\d{2}[\-]?\d{8}[\-]?\d{1})/g)];
             for (let cm of allCuits) {
@@ -755,92 +596,40 @@
                 }
             }
 
-            // 5. FECHA DE EMISIÓN EXACTA (Prioridad estricta a Fecha de Emisión sobre Vencimientos)
             let fecha = new Date().toISOString().split('T')[0];
             let feMatch = cleanText.match(/(?:Fecha\s+de\s+Emisi[oó]n|Fecha\s+Emisi[oó]n|Fecha)[\s:]*(\d{2})[\/\-](\d{2})[\/\-](\d{2,4})/i);
             if (feMatch) {
-                let y = feMatch[3];
-                if (y.length === 2) y = '20' + y;
+                let y = feMatch[3]; if (y.length === 2) y = '20' + y;
                 fecha = `${y}-${feMatch[2]}-${feMatch[1]}`;
-            } else {
-                let anyDateMatch = cleanText.match(/(\d{2})[\/\-](\d{2})[\/\-](\d{2,4})/);
-                if (anyDateMatch) {
-                    let y = anyDateMatch[3];
-                    if (y.length === 2) y = '20' + y;
-                    fecha = `${y}-${anyDateMatch[2]}-${anyDateMatch[1]}`;
-                }
             }
 
-            // 6. MONTO TOTAL (Algoritmo Omnívoro)
-            let total = 0;
-            let candidates = [];
+            let total = 0, candidates = [];
             let numMatches = [...cleanText.matchAll(/(?:[\$\s]|^)([1-9]\d{0,3}(?:[.,]\d{3})*(?:[.,]\d{2})|[1-9]\d{2,8}(?:[.,]\d{2}))(?=\s|$)/g)];
             for (let m of numMatches) {
                 let rawNum = m[1].replace(/\s/g, '');
                 if (rawNum.includes('.') && rawNum.includes(',')) {
-                    if (rawNum.lastIndexOf(',') > rawNum.lastIndexOf('.')) {
-                        rawNum = rawNum.replace(/\./g, '').replace(',', '.');
-                    } else {
-                        rawNum = rawNum.replace(/,/g, '');
-                    }
-                } else if (rawNum.includes(',')) {
-                    rawNum = rawNum.replace(',', '.');
-                }
-                
+                    if (rawNum.lastIndexOf(',') > rawNum.lastIndexOf('.')) rawNum = rawNum.replace(/\./g, '').replace(',', '.');
+                    else rawNum = rawNum.replace(/,/g, '');
+                } else if (rawNum.includes(',')) rawNum = rawNum.replace(',', '.');
                 let v = parseFloat(rawNum);
-                if (!isNaN(v) && v > 10) {
-                    candidates.push(v);
-                }
+                if (!isNaN(v) && v > 10) candidates.push(v);
             }
+            if (candidates.length > 0) total = Math.max(...candidates);
 
-            if (candidates.length > 0) {
-                total = Math.max(...candidates);
-            }
-
-            // 7. CAE y Vencimiento CAE
-            let cae = '';
-            let vencCae = '';
-            let caeMatch = cleanText.match(/(?:CAE|C\.A\.E\.)[\s:\ºN°]*(\d{14})/i);
-            if (caeMatch) cae = caeMatch[1];
-
-            let vencCaeMatch = cleanText.match(/(?:Vencimiento\s+CAE|Vto\.\s+CAE|Fecha\s+de\s+Vto\.\s+CAE)[\s:]*(\d{2})[\/\-](\d{2})[\/\-](\d{2,4})/i);
-            if (vencCaeMatch) {
-                let y = vencCaeMatch[3];
-                if (y.length === 2) y = '20' + y;
-                vencCae = `${y}-${vencCaeMatch[2]}-${vencCaeMatch[1]}`;
-            }
-
-            // 8. Razón Social y Emisor Integrado
             let razonSocial = '';
             let rsMatch = cleanText.match(/(?:Raz[oó]n\s+Social|Nombre)[\s:]*([A-Z0-9\s\.,\-\&']{3,50})(?:Domicilio|Condición|Punto|CUIT|FACTURA|Período|SKU|\n|$)/i);
             if (rsMatch) {
                 let cleanRs = rsMatch[1].replace(/(?:Domicilio|Condición|Punto|CUIT|FACTURA|ORIGINAL|Período|UNI TEC).*$/i, '').trim();
-                if (cleanRs.length > 2 && !cleanRs.includes('UNI TEC')) {
-                    razonSocial = cleanRs;
-                }
+                if (cleanRs.length > 2 && !cleanRs.includes('UNI TEC')) razonSocial = cleanRs;
             }
 
-            if (!razonSocial) {
-                let firstLine = rawText.split('\n').map(l => l.trim()).find(l => l.length > 3 && !l.includes('ORIGINAL') && !l.includes('FACTURA'));
-                if (firstLine) razonSocial = firstLine;
-                else razonSocial = fileName.replace(/\.[^/.]+$/, "");
-            }
-
-            // Emisor Integrado: Razón Social + CUIT siempre juntos
+            if (!razonSocial) razonSocial = fileName.replace(/\.[^/.]+$/, "");
             let emisorCompleto = cuit !== '00-00000000-0' ? `${razonSocial} (${cuit})` : razonSocial;
 
             return {
                 id: 'INV_' + Date.now() + '_' + Math.floor(Math.random()*1000),
-                fecha: fecha,
-                tipo: tipo,
-                puntoVenta: pv,
-                numero: num,
-                emisor: emisorCompleto,
-                cuit: cuit,
-                importe: total,
-                cae: cae,
-                vencCae: vencCae,
-                fileName: fileName
+                fecha: fecha, tipo: tipo, puntoVenta: pv, numero: num,
+                emisor: emisorCompleto, cuit: cuit, importe: total, cae: '', vencCae: '', fileName: fileName
             };
         }
 
@@ -848,427 +637,113 @@
             return !item.fecha || !item.puntoVenta || !item.numero || !item.emisor || !item.cuit || item.cuit === '00-00000000-0' || item.importe <= 0;
         }
 
-        // Permite guardar múltiples entradas en la base y no reemplazarlas automáticamente para que el detector de duplicados las muestre
         function saveInvoiceData(data) {
-            invoices.push(data);
-        }
-
-        
-        function openEditModal(id) {
-            const item = invoices.find(i => i.id === id) || pendingExtracted.find(i => i.id === id);
-            if (!item) {
-                alert('No se encontró el comprobante para editar.');
-                return;
-            }
-
-            document.getElementById('modalEditId').value = item.id;
-            document.getElementById('modalFecha').value = item.fecha || new Date().toISOString().split('T')[0];
-            document.getElementById('modalTipo').value = item.tipo || 'Factura A';
-            document.getElementById('modalPuntoVenta').value = item.puntoVenta || '00001';
-            document.getElementById('modalNumero').value = item.numero || '00000001';
-            document.getElementById('modalEmisor').value = item.emisor || '';
-            document.getElementById('modalCuit').value = (item.cuit && item.cuit !== '00-00000000-0') ? item.cuit : '';
-            document.getElementById('modalImporte').value = item.importe > 0 ? item.importe : '';
-            document.getElementById('modalCae').value = item.cae || '';
-            document.getElementById('modalVencCae').value = item.vencCae || '';
-
-            document.getElementById('editModal').classList.remove('hidden');
-        }
-
-        function closeEditModal() {
-            document.getElementById('editModal').classList.add('hidden');
-        }
-
-        function saveModalInvoice(e) {
-            e.preventDefault();
-            const editId = document.getElementById('modalEditId').value;
-
-            const updatedData = {
-                id: editId,
-                fecha: document.getElementById('modalFecha').value,
-                tipo: document.getElementById('modalTipo').value,
-                puntoVenta: (document.getElementById('modalPuntoVenta').value || '1').padStart(5, '0'),
-                numero: (document.getElementById('modalNumero').value || '1').padStart(8, '0'),
-                emisor: document.getElementById('modalEmisor').value || 'Sin Nombre',
-                cuit: document.getElementById('modalCuit').value || '00-00000000-0',
-                importe: parseFloat(document.getElementById('modalImporte').value) || 0,
-                cae: document.getElementById('modalCae').value || '',
-                vencCae: document.getElementById('modalVencCae').value || '',
-                fileName: 'Edición Manual'
-            };
-
-            // Actualizar en el arreglo principal
-            const idxMain = invoices.findIndex(i => i.id === editId);
-            if (idxMain >= 0) {
-                invoices[idxMain] = updatedData;
-            } else {
-                invoices.push(updatedData);
-            }
-
-            // Actualizar en recientes si existe
-            const idxPending = pendingExtracted.findIndex(i => i.id === editId);
-            if (idxPending >= 0) {
-                pendingExtracted[idxPending] = updatedData;
-            }
-
-            saveInvoicesToStorage();
-            renderPendingList();
-            filterAndRenderInvoices();
-            closeEditModal();
-        }
-
-function saveInvoiceFromForm(e) {
-            e.preventDefault();
-            const editId = document.getElementById('formEditId').value;
-            const newId = editId || ('INV_' + Date.now() + '_' + Math.floor(Math.random()*1000));
-
-            const data = {
-                id: newId,
-                fecha: document.getElementById('formFecha').value,
-                tipo: document.getElementById('formTipo').value,
-                puntoVenta: (document.getElementById('formPuntoVenta').value || '1').padStart(5, '0'),
-                numero: (document.getElementById('formNumero').value || '1').padStart(8, '0'),
-                emisor: document.getElementById('formEmisor').value || 'Sin Nombre',
-                cuit: document.getElementById('formCuit').value || '00-00000000-0',
-                importe: parseFloat(document.getElementById('formImporte').value) || 0,
-                cae: document.getElementById('formCae').value || '',
-                vencCae: document.getElementById('formVencCae').value || '',
-                fileName: editId ? 'Edición Manual' : 'Carga Manual'
-            };
-
-            // 1. Actualizar en el arreglo principal 'invoices'
-            const idxMain = invoices.findIndex(i => i.id === editId);
-            if (idxMain >= 0) {
-                invoices[idxMain] = data;
-            } else {
+            const dupKey = `${cleanCuit(data.cuit)}_${cleanType(data.tipo)}_${data.puntoVenta}_${data.numero}`;
+            const exists = invoices.some(inv => `${cleanCuit(inv.cuit)}_${cleanType(inv.tipo)}_${inv.puntoVenta}_${inv.numero}` === dupKey);
+            if (!exists) {
                 invoices.push(data);
             }
-
-            // 2. Actualizar también en 'pendingExtracted' si proviene de ahí
-            const idxPending = pendingExtracted.findIndex(i => i.id === editId);
-            if (idxPending >= 0) {
-                pendingExtracted[idxPending] = data;
-            }
-
-            // 3. Persistir y refrescar la tabla y el listado de recientes
-            saveInvoicesToStorage();
-            renderPendingList();
-            resetForm();
-
-            alert('¡Factura guardada/actualizada con éxito!');
         }
 
-        function resetForm() {
-            document.getElementById('invoiceForm').reset();
-            document.getElementById('formEditId').value = '';
-        }
-
-        function renderPendingList() {
-            const container = document.getElementById('pendingContainer');
-            if (pendingExtracted.length === 0) {
-                container.innerHTML = `
-                    <div class="text-center py-12 text-slate-400 border border-dashed rounded-xl bg-slate-50">
-                        <i class="fa-regular fa-folder-open text-3xl mb-2"></i>
-                        <p class="text-sm">No hay comprobantes escaneados en esta sesión.</p>
-                        <p class="text-xs">Sube archivos PDF arriba para extraer sus datos automáticamente.</p>
-                    </div>`;
-                return;
-            }
-
-            container.innerHTML = pendingExtracted.map(item => {
-                const incomplete = checkIsIncomplete(item);
-                return `
-                <div class="p-4 ${incomplete ? 'bg-amber-50 border-amber-300' : 'bg-slate-50 border-slate-200'} rounded-xl border flex flex-col md:flex-row justify-between items-start md:items-center gap-3 text-xs">
-                    <div>
-                        <div class="flex items-center gap-2">
-                            <span class="px-2 py-0.5 bg-blue-100 text-blue-800 rounded font-bold">${item.tipo}</span>
-                            <span class="font-mono font-bold text-slate-800">${item.puntoVenta}-${item.numero}</span>
-                            <span class="text-slate-400">|</span>
-                            <span class="font-semibold text-slate-700">${item.fecha}</span>
-                            ${incomplete ? '<span class="px-2 py-0.5 bg-amber-200 text-amber-900 font-bold rounded">A REVISAR</span>' : ''}
-                        </div>
-                        <p class="font-bold text-slate-900 mt-1">${item.emisor}</p>
-                        <p class="text-slate-500">CUIT: ${item.cuit} ${item.cae ? '| CAE: ' + item.cae : ''}</p>
-                    </div>
-                    <div class="flex items-center gap-4">
-                        <div class="text-right">
-                            <p class="text-slate-400 text-[10px]">Importe Total</p>
-                            <p class="text-base font-bold text-emerald-600 font-mono">$ ${formatNumber(item.importe)}</p>
-                        </div>
-                        <button onclick="openEditModal('${item.id}')" class="bg-amber-100 hover:bg-amber-200 text-amber-900 px-3 py-1.5 rounded font-bold flex items-center gap-1">
-                            <i class="fa-solid fa-pen-to-square"></i> Editar
-                        </button>
-                    </div>
-                </div>
-            `}).join('');
-        }
-
-        function populateFormForEdit(id) {
-            const item = pendingExtracted.find(i => i.id === id) || invoices.find(i => i.id === id);
-            if (!item) {
-                alert('No se pudo encontrar el comprobante seleccionado.');
-                return;
-            }
-
-            switchTab('extract');
-
-            document.getElementById('formEditId').value = item.id;
-            document.getElementById('formFecha').value = item.fecha || new Date().toISOString().split('T')[0];
-            document.getElementById('formTipo').value = item.tipo || 'Factura A';
-            document.getElementById('formPuntoVenta').value = item.puntoVenta || '00001';
-            document.getElementById('formNumero').value = item.numero || '00000001';
-            document.getElementById('formEmisor').value = item.emisor || '';
-            document.getElementById('formCuit').value = (item.cuit && item.cuit !== '00-00000000-0') ? item.cuit : '';
-            document.getElementById('formImporte').value = item.importe > 0 ? item.importe : '';
-            document.getElementById('formCae').value = item.cae || '';
-            document.getElementById('formVencCae').value = item.vencCae || '';
-
-            // Hacer un resaltado visual en el formulario
-            const formCard = document.getElementById('invoiceForm').parentElement;
-            formCard.classList.add('ring-2', 'ring-blue-500');
-            setTimeout(() => formCard.classList.remove('ring-2', 'ring-blue-500'), 2500);
-
-            window.scrollTo({ top: 0, behavior: 'smooth' });
-        }
-
-        function clearPendingList() {
-            pendingExtracted = [];
-            renderPendingList();
-        }
-
-        function updateMonthFilterDropdown() {
-            const select = document.getElementById('monthFilter');
-            const currentVal = select.value;
-            
-            const months = [...new Set(invoices.map(i => i.fecha ? i.fecha.slice(0, 7) : '').filter(m => m !== ''))].sort().reverse();
-
-            select.innerHTML = '<option value="ALL">Todos los meses</option>' + 
-                months.map(m => {
-                    const [y, mm] = m.split('-');
-                    const dateObj = new Date(parseInt(y), parseInt(mm) - 1, 1);
-                    const monthName = dateObj.toLocaleString('es-ES', { month: 'long', year: 'numeric' });
-                    return `<option value="${m}">${monthName.toUpperCase()} (${m})</option>`;
-                }).join('');
-
-            if (months.includes(currentVal)) {
-                select.value = currentVal;
-            }
-            
-            document.getElementById('totalBadgeCount').innerText = invoices.length;
-        }
-
-        function filterAndRenderInvoices() {
-            const monthVal = document.getElementById('monthFilter').value;
-            const searchGen = document.getElementById('searchGeneral').value.toLowerCase().trim();
-            const searchFecha = document.getElementById('searchFecha').value;
-            const minAmt = parseFloat(document.getElementById('searchMontoMin').value);
-            const maxAmt = parseFloat(document.getElementById('searchMontoMax').value);
-
-            const filtered = invoices.filter(i => {
-                if (monthVal !== 'ALL' && (!i.fecha || !i.fecha.startsWith(monthVal))) return false;
-                if (searchFecha && i.fecha !== searchFecha) return false;
-
-                if (searchGen) {
-                    const matchEmisor = i.emisor.toLowerCase().includes(searchGen);
-                    const matchCuit = i.cuit.includes(searchGen);
-                    const matchNum = `${i.puntoVenta}-${i.numero}`.includes(searchGen);
-                    const matchCae = (i.cae || '').includes(searchGen);
-                    if (!matchEmisor && !matchCuit && !matchNum && !matchCae) return false;
-                }
-
-                if (!isNaN(minAmt) && i.importe < minAmt) return false;
-                if (!isNaN(maxAmt) && i.importe > maxAmt) return false;
-
-                return true;
-            });
-
-            renderInvoiceTable(filtered);
-        }
-
-        function renderInvoiceTable(dataList = invoices) {
-            const tbody = document.getElementById('invoiceTableBody');
-            const emptyNotice = document.getElementById('emptyTableNotice');
-
-            // Mapeo de duplicados por CUIT + Tipo + PV + Numero (excluyendo incompletas)
-            const getDupKey = (i) => {
-                const c = cleanCuit(i.cuit);
-                const pv = i.puntoVenta || '00001';
-                const num = i.numero || '00000001';
-                if (!c || c === '00000000000' || (pv === '00001' && num === '00000001')) return null;
-                return `${c}_${cleanType(i.tipo)}_${pv}_${num}`;
-            };
-
-            const keyCounts = new Map();
-            invoices.forEach(i => {
-                const k = getDupKey(i);
-                if (k) keyCounts.set(k, (keyCounts.get(k) || 0) + 1);
-            });
-
-            let dupCount = 0;
-            let incCount = 0;
-
-            dataList.forEach(i => {
-                const k = `${cleanCuit(i.cuit)}_${cleanType(i.tipo)}_${i.puntoVenta}_${i.numero}`;
-                if ((keyCounts.get(k) || 0) > 1) dupCount++;
-                if (checkIsIncomplete(i)) incCount++;
-            });
-
-            document.getElementById('statTotalCount').innerText = dataList.length;
-            const totalSum = dataList.reduce((acc, curr) => acc + (curr.importe || 0), 0);
-            document.getElementById('statTotalAmount').innerText = '$ ' + formatNumber(totalSum);
-            document.getElementById('statDuplicateCount').innerText = dupCount;
-            document.getElementById('statIncompleteCount').innerText = incCount;
-
-            if (dataList.length === 0) {
-                tbody.innerHTML = '';
-                emptyNotice.classList.remove('hidden');
-                return;
-            }
-
-            emptyNotice.classList.add('hidden');
-
-            tbody.innerHTML = dataList.map(item => {
-                const k = getDupKey(item);
-                const isDup = k ? ((keyCounts.get(k) || 0) > 1) : false;
-                const isIncomplete = checkIsIncomplete(item);
-
-                let rowClass = 'hover:bg-slate-50 border-b border-slate-100 transition';
-                if (isDup) rowClass = 'bg-duplicate hover:bg-red-100 border-b border-red-200 transition';
-                else if (isIncomplete) rowClass = 'bg-incomplete hover:bg-amber-100 border-b border-amber-200 transition';
-
-                let badgeState = '<span class="px-2 py-0.5 text-[10px] bg-emerald-100 text-emerald-800 rounded font-bold">OK</span>';
-                if (isDup) badgeState = '<span class="px-2 py-0.5 text-[10px] bg-red-200 text-red-900 rounded font-bold"><i class="fa-solid fa-copy"></i> REPETIDA</span>';
-                else if (isIncomplete) badgeState = '<span class="px-2 py-0.5 text-[10px] bg-amber-200 text-amber-900 rounded font-bold"><i class="fa-solid fa-pen"></i> INCOMPLETA</span>';
-
-                return `
-                <tr class="${rowClass}">
-                    <td class="p-3">${badgeState}</td>
-                    <td class="p-3 font-medium text-slate-800">${item.fecha}</td>
-                    <td class="p-3"><span class="px-2 py-0.5 text-[10px] bg-slate-200 text-slate-800 rounded font-semibold">${item.tipo}</span></td>
-                    <td class="p-3 font-mono">${item.puntoVenta}</td>
-                    <td class="p-3 font-mono font-semibold">${item.numero}</td>
-                    <td class="p-3 font-medium text-slate-900">${item.emisor}</td>
-                    <td class="p-3 font-mono text-slate-600">${item.cuit}</td>
-                    <td class="p-3 text-right font-mono font-bold text-emerald-600">$ ${formatNumber(item.importe)}</td>
-                    <td class="p-3 font-mono text-slate-500">${item.cae || '-'}</td>
-                    <td class="p-3 font-mono text-slate-500">${item.vencCae || '-'}</td>
-                    <td class="p-3 text-center flex items-center justify-center gap-1">
-                        <button onclick="openEditModal('${item.id}')" class="text-blue-600 hover:text-blue-800 p-1.5 rounded bg-blue-50 hover:bg-blue-100" title="Editar">
-                            <i class="fa-solid fa-pen-to-square"></i>
-                        </button>
-                        <button onclick="deleteInvoice('${item.id}')" class="text-red-500 hover:text-red-700 p-1.5 rounded bg-red-50 hover:bg-red-100" title="Eliminar">
-                            <i class="fa-solid fa-trash-can"></i>
-                        </button>
-                    </td>
-                </tr>
-            `}).join('');
-        }
-
-        function deleteInvoice(id) {
-            if (confirm('¿Desea eliminar esta factura del listado local?')) {
-                invoices = invoices.filter(i => i.id !== id);
-                saveInvoicesToStorage();
-            }
-        }
-
-        function clearAllData() {
-            if (confirm('ATENCIÓN: ¿Está seguro de vaciar toda la base de facturas guardadas? Esta acción no se puede deshacer.')) {
-                invoices = [];
-                pendingExtracted = [];
-                localStorage.removeItem(STORAGE_KEY);
-                renderPendingList();
-                saveInvoicesToStorage();
-                alert('Base de datos y lista de pendientes vaciadas correctamente.');
-            }
-        }
-
-        // Exportación a Excel con celdas numéricas de moneda
-        function exportToExcel() {
-            if (invoices.length === 0) {
-                alert('No hay facturas cargadas para exportar.');
-                return;
-            }
-
-            const headers = [
-                'Tipo de comprobante',
-                'Punto de venta',
-                'Numero de comprobante',
-                'Nombre del EMISOR',
-                'CUIT del EMISOR',
-                'Importe total',
-                'CAE',
-                'Fecha de vencimiento del CAE'
-            ];
-
-            const rows = invoices.map(i => [
-                i.tipo,
-                i.puntoVenta,
-                i.numero,
-                i.emisor,
-                i.cuit,
-                Number(i.importe || 0),
-                i.cae || '',
-                i.vencCae || ''
-            ]);
-
-            const wsData = [headers, ...rows];
-            const ws = XLSX.utils.aoa_to_sheet(wsData);
-
-            const currencyFormat = '$ #,##0.00';
-            const range = XLSX.utils.decode_range(ws['!ref']);
-            for (let R = 1; R <= range.e.r; ++R) {
-                const cellAddress = XLSX.utils.encode_cell({ r: R, c: 5 });
-                if (ws[cellAddress]) {
-                    ws[cellAddress].t = 'n';
-                    ws[cellAddress].z = currencyFormat;
-                }
-            }
-
-            ws['!cols'] = [
-                { wch: 20 },
-                { wch: 15 },
-                { wch: 22 },
-                { wch: 35 },
-                { wch: 18 },
-                { wch: 18 },
-                { wch: 18 },
-                { wch: 22 }
-            ];
-
-            const wb = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(wb, ws, 'Facturas');
-
-            XLSX.writeFile(wb, `Facturas_Extraidas_${new Date().toISOString().split('T')[0]}.xlsx`);
-        }
-
-        function exportJSON() {
-            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(invoices, null, 2));
-            const downloadAnchor = document.createElement('a');
-            downloadAnchor.setAttribute("href", dataStr);
-            downloadAnchor.setAttribute("download", `Respaldofacturas_${new Date().toISOString().split('T')[0]}.json`);
-            document.body.appendChild(downloadAnchor);
-            downloadAnchor.click();
-            downloadAnchor.remove();
-        }
-
-        function importJSON(e) {
+        function handleHolistorExcelUpload(e) {
             const file = e.target.files[0];
             if (!file) return;
 
             const reader = new FileReader();
-            reader.onload = function(event) {
+            reader.onload = function(evt) {
                 try {
-                    const imported = JSON.parse(event.target.result);
-                    if (Array.isArray(imported)) {
-                        invoices = imported;
-                        saveInvoicesToStorage();
-                        alert(`Se restauraron ${imported.length} facturas con éxito.`);
+                    const data = new Uint8Array(evt.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    const sheet = workbook.Sheets[workbook.SheetNames[0]];
+                    const json = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
+
+                    let headerRowIdx = -1;
+                    for (let i = 0; i < json.length; i++) {
+                        if (json[i].includes('Comprobante') || json[i].includes('Proveedor')) {
+                            headerRowIdx = i; break;
+                        }
                     }
+
+                    if (headerRowIdx === -1) {
+                        alert('No se encontró el formato estándar de Holistor.'); return;
+                    }
+
+                    const headers = json[headerRowIdx].map(h => String(h).trim());
+                    const compIdx = headers.indexOf('Comprobante');
+                    const provIdx = headers.indexOf('Proveedor');
+                    const docIdx = headers.findIndex(h => h.includes('Doc') || h.includes('CUIT'));
+                    const fechaIdx = headers.indexOf('Fecha');
+                    const totalIdx = headers.indexOf('Total');
+
+                    let count = 0;
+                    for (let r = headerRowIdx + 1; r < json.length; r++) {
+                        const row = json[r];
+                        if (!row[compIdx] || !row[totalIdx]) continue;
+
+                        const compStr = String(row[compIdx]).trim();
+                        const parts = compStr.split(/\s+/);
+                        if (parts.length < 3) continue;
+
+                        const num = parts[parts.length - 1].padStart(8, '0');
+                        const pv = parts[parts.length - 2].padStart(5, '0');
+                        const tipoRaw = parts.slice(0, parts.length - 2).join(' ').toUpperCase();
+
+                        let tipo = 'Factura A';
+                        if (tipoRaw.includes('FAC B') || tipoRaw.includes('FACTURA B')) tipo = 'Factura B';
+                        else if (tipoRaw.includes('FAC C') || tipoRaw.includes('FACTURA C')) tipo = 'Factura C';
+                        else if (tipoRaw.includes('N.CR A') || tipoRaw.includes('NC A')) tipo = 'Nota de Crédito A';
+                        else if (tipoRaw.includes('N.CR B') || tipoRaw.includes('NC B')) tipo = 'Nota de Crédito B';
+                        else if (tipoRaw.includes('N.CR C') || tipoRaw.includes('NC C')) tipo = 'Nota de Crédito C';
+                        else if (tipoRaw.includes('TIQ') || tipoRaw.includes('TICKET')) tipo = 'Tique';
+
+                        const docStr = String(row[docIdx] || '');
+                        const digits = docStr.replace(/\D/g, '');
+                        let cuit = '00-00000000-0';
+                        if (digits.length >= 11) {
+                            const c = digits.slice(-11);
+                            cuit = `${c.slice(0,2)}-${c.slice(2,10)}-${c.slice(10)}`;
+                        }
+
+                        let fecha = new Date().toISOString().split('T')[0];
+                        if (row[fechaIdx]) {
+                            const d = new Date(row[fechaIdx]);
+                            if (!isNaN(d.getTime())) {
+                                fecha = d.toISOString().split('T')[0];
+                            } else {
+                                const matchF = String(row[fechaIdx]).match(/(\d{2})[\/-](\d{2})[\/-](\d{2,4})/);
+                                if (matchF) {
+                                    let y = matchF[3]; if (y.length === 2) y = '20' + y;
+                                    fecha = `${y}-${matchF[2]}-${matchF[1]}`;
+                                }
+                            }
+                        }
+
+                        const emisor = String(row[provIdx] || 'Proveedor Holistor').trim();
+                        const total = parseFloat(String(row[totalIdx]).replace(/\./g, '').replace(',', '.')) || 0;
+
+                        const itemHolistor = {
+                            id: 'HOL_' + Date.now() + '_' + Math.floor(Math.random()*1000),
+                            fecha: fecha, tipo: tipo, puntoVenta: pv, numero: num,
+                            emisor: cuit !== '00-00000000-0' ? `${emisor} (${cuit})` : emisor,
+                            cuit: cuit, importe: total, cae: '', vencCae: '', fileName: 'Reporte Holistor'
+                        };
+
+                        const dupKey = `${cleanCuit(cuit)}_${cleanType(tipo)}_${pv}_${num}`;
+                        const exists = invoices.some(inv => `${cleanCuit(inv.cuit)}_${cleanType(inv.tipo)}_${inv.puntoVenta}_${inv.numero}` === dupKey);
+                        if (!exists) {
+                            invoices.push(itemHolistor);
+                            count++;
+                        }
+                    }
+
+                    saveInvoicesToStorage();
+                    alert(`¡Excel de Holistor procesado con éxito! Se integraron ${count} facturas a la base consolidada local.`);
                 } catch (err) {
-                    alert('Error al leer el archivo JSON.');
+                    console.error('Error procesando Holistor:', err);
+                    alert('Ocurrió un error al procesar Holistor.');
                 }
             };
-            reader.readAsText(file);
+            reader.readAsArrayBuffer(file);
         }
 
         function handleArcaExcelUpload(e) {
@@ -1279,9 +754,8 @@ function saveInvoiceFromForm(e) {
             reader.onload = function(evt) {
                 const data = new Uint8Array(evt.target.result);
                 const workbook = XLSX.read(data, { type: 'array' });
-                const firstSheetName = workbook.SheetNames[0];
-                const worksheet = workbook.Sheets[firstSheetName];
-                const json = XLSX.utils.sheet_to_json(worksheet, { defval: '' });
+                const sheet = workbook.Sheets[workbook.SheetNames[0]];
+                const json = XLSX.utils.sheet_to_json(sheet, { defval: '' });
 
                 arcaInvoices = json.map(r => {
                     const findCol = (possibleNames) => {
@@ -1294,23 +768,18 @@ function saveInvoiceFromForm(e) {
 
                     const tipo = findCol(['Tipo de comprobante', 'Tipo', 'Tipo Comprobante']);
                     const pv = String(findCol(['Punto de venta', 'Punto de Venta', 'P.V.'])).padStart(5, '0');
-                    const num = String(findCol(['Numero de comprobante', 'Número de Comprobante', 'Numero', 'Nro'])).padStart(8, '0');
-                    const emisor = findCol(['Nombre del EMISOR', 'Razon Social', 'Emisor', 'Denominación del Emisor']);
-                    const cuit = String(findCol(['CUIT del EMISOR', 'CUIT', 'CUIT Emisor'])).replace(/\-/g, '');
+                    const num = String(findCol(['Numero de comprobante', 'Número de Comprobante', 'Número Desde', 'Numero', 'Nro'])).padStart(8, '0');
+                    const emisor = findCol(['Nombre del EMISOR', 'Denominación Emisor', 'Razon Social', 'Emisor']);
+                    const cuit = String(findCol(['CUIT del EMISOR', 'Nro. Doc. Emisor', 'CUIT', 'CUIT Emisor'])).replace(/\-/g, '');
                     const importe = parseFloat(String(findCol(['Importe total', 'Imp. Total', 'Total'])).replace(/\./g, '').replace(',', '.')) || 0;
+                    const fecha = findCol(['Fecha']);
 
                     let formattedCuit = cuit;
-                    if (cuit.length === 11) {
-                        formattedCuit = `${cuit.slice(0,2)}-${cuit.slice(2,10)}-${cuit.slice(10)}`;
-                    }
+                    if (cuit.length === 11) formattedCuit = `${cuit.slice(0,2)}-${cuit.slice(2,10)}-${cuit.slice(10)}`;
 
                     return {
-                        tipo: tipo,
-                        puntoVenta: pv,
-                        numero: num,
-                        emisor: emisor,
-                        cuit: formattedCuit,
-                        importe: importe
+                        fecha: fecha || '', tipo: tipo, puntoVenta: pv, numero: num,
+                        emisor: emisor, cuit: formattedCuit, importe: importe
                     };
                 });
 
@@ -1335,113 +804,148 @@ function saveInvoiceFromForm(e) {
             });
 
             let matchedCount = 0;
-            let missingLocalCount = 0;
-            let missingArcaCount = 0;
-
-            const reconciliationResults = [];
+            let missingLocalList = [];
+            let missingArcaList = [];
 
             arcaMap.forEach((arcaItem, key) => {
-                if (localMap.has(key)) {
-                    const localItem = localMap.get(key);
-                    matchedCount++;
-                    reconciliationResults.push({
-                        status: 'MATCHED',
-                        tipo: arcaItem.tipo,
-                        pvNum: `${arcaItem.puntoVenta}-${arcaItem.numero}`,
-                        emisorCuit: `${arcaItem.emisor} (${arcaItem.cuit})`,
-                        montoLocal: localItem.importe,
-                        montoArca: arcaItem.importe,
-                        detail: Math.abs(localItem.importe - arcaItem.importe) < 0.01 ? 'Conciliación Exacta' : 'Diferencia en Importe'
-                    });
-                } else {
-                    missingLocalCount++;
-                    reconciliationResults.push({
-                        status: 'MISSING_LOCAL',
-                        tipo: arcaItem.tipo,
-                        pvNum: `${arcaItem.puntoVenta}-${arcaItem.numero}`,
-                        emisorCuit: `${arcaItem.emisor} (${arcaItem.cuit})`,
-                        montoLocal: 0,
-                        montoArca: arcaItem.importe,
-                        detail: 'Registrado en ARCA pero no cargado localmente'
-                    });
-                }
+                if (localMap.has(key)) { matchedCount++; }
+                else { missingLocalList.push(arcaItem); }
             });
 
             localMap.forEach((localItem, key) => {
-                if (!arcaMap.has(key)) {
-                    missingArcaCount++;
-                    reconciliationResults.push({
-                        status: 'MISSING_ARCA',
-                        tipo: localItem.tipo,
-                        pvNum: `${localItem.puntoVenta}-${localItem.numero}`,
-                        emisorCuit: `${localItem.emisor} (${localItem.cuit})`,
-                        montoLocal: localItem.importe,
-                        montoArca: 0,
-                        detail: 'Cargado localmente pero ausente en reporte ARCA'
-                    });
-                }
+                if (!arcaMap.has(key)) { missingArcaList.push(localItem); }
             });
 
             document.getElementById('arcaTotalCount').innerText = arcaInvoices.length;
             document.getElementById('localTotalCount').innerText = invoices.length;
             document.getElementById('matchedCount').innerText = matchedCount;
-            document.getElementById('missingLocalCount').innerText = missingLocalCount;
-            document.getElementById('missingArcaCount').innerText = missingArcaCount;
+            document.getElementById('missingLocalCount').innerText = missingLocalList.length;
+            document.getElementById('missingArcaCount').innerText = missingArcaList.length;
 
-            window.currentReconcileResults = reconciliationResults;
-            renderReconciliationTable();
+            window.missingLocalList = missingLocalList;
+            window.missingArcaList = missingArcaList;
+
+            renderReconciliationTables();
         }
 
-        function cleanCuit(cuit) {
-            return (cuit || '').replace(/\-/g, '').trim();
+        function renderReconciliationTables() {
+            const listA = window.missingArcaList || [];
+            const listB = window.missingLocalList || [];
+
+            const tbodyA = document.getElementById('tableBodyMissingArca');
+            const tbodyB = document.getElementById('tableBodyMissingLocal');
+
+            tbodyA.innerHTML = listA.map(i => `
+                <tr class="hover:bg-amber-50/50 border-b border-slate-100 text-xs">
+                    <td class="p-2.5 font-medium text-slate-800">${i.fecha}</td>
+                    <td class="p-2.5 font-semibold text-slate-700">${i.tipo}</td>
+                    <td class="p-2.5 font-mono font-bold text-slate-900">${i.puntoVenta}-${i.numero}</td>
+                    <td class="p-2.5 font-medium">${i.emisor}</td>
+                    <td class="p-2.5 text-right font-mono font-bold text-amber-700">$ ${formatNumber(i.importe)}</td>
+                </tr>
+            `).join('');
+
+            tbodyB.innerHTML = listB.map(i => `
+                <tr class="hover:bg-red-50/50 border-b border-slate-100 text-xs">
+                    <td class="p-2.5 font-medium text-slate-800">${i.fecha}</td>
+                    <td class="p-2.5 font-semibold text-slate-700">${i.tipo}</td>
+                    <td class="p-2.5 font-mono font-bold text-slate-900">${i.puntoVenta}-${i.numero}</td>
+                    <td class="p-2.5 font-medium">${i.emisor} (${i.cuit})</td>
+                    <td class="p-2.5 text-right font-mono font-bold text-red-700">$ ${formatNumber(i.importe)}</td>
+                </tr>
+            `).join('');
         }
 
+        function cleanCuit(cuit) { return (cuit || '').replace(/\-/g, '').trim(); }
         function cleanType(tipo) {
-            return (tipo || '').toUpperCase().replace(/\s+/g, '');
+            let t = (tipo || '').toUpperCase();
+            if (t.includes('FACTURA A') || t.includes('FAC A') || t.includes('1 - FACTURA A')) return 'FACTURAA';
+            if (t.includes('FACTURA B') || t.includes('FAC B') || t.includes('6 - FACTURA B')) return 'FACTURAB';
+            if (t.includes('FACTURA C') || t.includes('FAC C') || t.includes('11 - FACTURA C')) return 'FACTURAC';
+            if (t.includes('NOTA DE CRÉDITO A') || t.includes('NOTA DE CREDITO A') || t.includes('N.CR A') || t.includes('NC A')) return 'NOTADECRÉDITOA';
+            if (t.includes('TIQUE') || t.includes('TICKET')) return 'TIQUE';
+            return t.replace(/[^A-Z0-9]/g, '');
         }
 
-        function setReconcileFilter(filter) {
-            currentReconcileFilter = filter;
-            ['recTabAll', 'recTabMatched', 'recTabMissingLocal', 'recTabMissingArca'].forEach(id => {
-                document.getElementById(id).className = 'px-3 py-1.5 text-xs font-medium rounded-lg bg-slate-200 text-slate-700 hover:bg-slate-300';
-            });
+        function renderPendingList() {
+            const container = document.getElementById('pendingContainer');
+            if (pendingExtracted.length === 0) {
+                container.innerHTML = `<div class="text-center py-12 text-slate-400 border border-dashed rounded-xl bg-slate-50"><i class="fa-regular fa-folder-open text-3xl mb-2"></i><p class="text-sm">No hay comprobantes cargados en esta sesión.</p></div>`;
+                return;
+            }
 
-            if (filter === 'all') document.getElementById('recTabAll').className = 'px-3 py-1.5 text-xs font-bold rounded-lg bg-indigo-600 text-white';
-            if (filter === 'matched') document.getElementById('recTabMatched').className = 'px-3 py-1.5 text-xs font-bold rounded-lg bg-emerald-600 text-white';
-            if (filter === 'missing_local') document.getElementById('recTabMissingLocal').className = 'px-3 py-1.5 text-xs font-bold rounded-lg bg-red-600 text-white';
-            if (filter === 'missing_arca') document.getElementById('recTabMissingArca').className = 'px-3 py-1.5 text-xs font-bold rounded-lg bg-amber-600 text-white';
-
-            renderReconciliationTable();
+            container.innerHTML = pendingExtracted.map(item => `
+                <div class="p-3 bg-slate-50 border border-slate-200 rounded-xl flex justify-between items-center text-xs">
+                    <div>
+                        <div class="flex items-center gap-2">
+                            <span class="px-2 py-0.5 bg-blue-100 text-blue-800 rounded font-bold">${item.tipo}</span>
+                            <span class="font-mono font-bold text-slate-800">${item.puntoVenta}-${item.numero}</span>
+                            <span class="text-slate-400">|</span>
+                            <span class="font-semibold text-slate-700">${item.fecha}</span>
+                        </div>
+                        <p class="font-bold text-slate-900 mt-1">${item.emisor}</p>
+                    </div>
+                    <div class="text-right font-mono font-bold text-emerald-600 text-base">$ ${formatNumber(item.importe)}</div>
+                </div>
+            `).join('');
         }
 
-        function renderReconciliationTable() {
-            const results = window.currentReconcileResults || [];
-            const tbody = document.getElementById('reconcileTableBody');
+        function renderInvoiceTable(dataList = invoices) {
+            const tbody = document.getElementById('invoiceTableBody');
+            document.getElementById('statTotalCount').innerText = dataList.length;
+            const totalSum = dataList.reduce((acc, curr) => acc + (curr.importe || 0), 0);
+            document.getElementById('statTotalAmount').innerText = '$ ' + formatNumber(totalSum);
 
-            const filtered = results.filter(r => {
-                if (currentReconcileFilter === 'matched') return r.status === 'MATCHED';
-                if (currentReconcileFilter === 'missing_local') return r.status === 'MISSING_LOCAL';
-                if (currentReconcileFilter === 'missing_arca') return r.status === 'MISSING_ARCA';
+            tbody.innerHTML = dataList.map(item => `
+                <tr class="hover:bg-slate-50 border-b border-slate-100 transition text-xs">
+                    <td class="p-3"><span class="px-2 py-0.5 text-[10px] bg-emerald-100 text-emerald-800 rounded font-bold">OK</span></td>
+                    <td class="p-3 font-medium text-slate-800">${item.fecha}</td>
+                    <td class="p-3"><span class="px-2 py-0.5 text-[10px] bg-slate-200 text-slate-800 rounded font-semibold">${item.tipo}</span></td>
+                    <td class="p-3 font-mono">${item.puntoVenta}</td>
+                    <td class="p-3 font-mono font-semibold">${item.numero}</td>
+                    <td class="p-3 font-medium text-slate-900">${item.emisor}</td>
+                    <td class="p-3 font-mono text-slate-600">${item.cuit}</td>
+                    <td class="p-3 text-right font-mono font-bold text-emerald-600">$ ${formatNumber(item.importe)}</td>
+                    <td class="p-3 text-center">
+                        <button onclick="deleteInvoice('${item.id}')" class="text-red-500 hover:text-red-700 p-1 rounded bg-red-50"><i class="fa-solid fa-trash-can"></i></button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        function deleteInvoice(id) {
+            if (confirm('¿Desea eliminar este comprobante?')) {
+                invoices = invoices.filter(i => i.id !== id);
+                saveInvoicesToStorage();
+            }
+        }
+
+        function clearAllData() {
+            if (confirm('¿Vaciar toda la base consolidada local?')) {
+                invoices = [];
+                pendingExtracted = [];
+                localStorage.removeItem(STORAGE_KEY);
+                renderPendingList();
+                saveInvoicesToStorage();
+            }
+        }
+
+        function updateMonthFilterDropdown() {
+            const select = document.getElementById('monthFilter');
+            const months = [...new Set(invoices.map(i => i.fecha ? i.fecha.slice(0, 7) : '').filter(m => m !== ''))].sort().reverse();
+            select.innerHTML = '<option value="ALL">Todos los meses</option>' + months.map(m => `<option value="${m}">${m}</option>`).join('');
+            document.getElementById('totalBadgeCount').innerText = invoices.length;
+        }
+
+        function filterAndRenderInvoices() {
+            const monthVal = document.getElementById('monthFilter').value;
+            const searchGen = document.getElementById('searchGeneral').value.toLowerCase().trim();
+            const filtered = invoices.filter(i => {
+                if (monthVal !== 'ALL' && (!i.fecha || !i.fecha.startsWith(monthVal))) return false;
+                if (searchGen && !i.emisor.toLowerCase().includes(searchGen) && !i.cuit.includes(searchGen)) return false;
                 return true;
             });
-
-            tbody.innerHTML = filtered.map(r => {
-                let badge = '<span class="px-2 py-0.5 rounded text-[10px] bg-emerald-100 text-emerald-800 font-bold">CONCILIADO</span>';
-                if (r.status === 'MISSING_LOCAL') badge = '<span class="px-2 py-0.5 rounded text-[10px] bg-red-100 text-red-800 font-bold">FALTA CARGAR</span>';
-                if (r.status === 'MISSING_ARCA') badge = '<span class="px-2 py-0.5 rounded text-[10px] bg-amber-100 text-amber-800 font-bold">FALTA EN ARCA</span>';
-
-                return `
-                    <tr class="hover:bg-slate-50 border-b border-slate-100">
-                        <td class="p-3">${badge}</td>
-                        <td class="p-3 font-semibold">${r.tipo}</td>
-                        <td class="p-3 font-mono">${r.pvNum}</td>
-                        <td class="p-3 font-medium">${r.emisorCuit}</td>
-                        <td class="p-3 text-right font-mono font-bold ${r.montoLocal ? 'text-slate-900' : 'text-slate-300'}">$ ${formatNumber(r.montoLocal)}</td>
-                        <td class="p-3 text-right font-mono font-bold ${r.montoArca ? 'text-slate-900' : 'text-slate-300'}">$ ${formatNumber(r.montoArca)}</td>
-                        <td class="p-3 text-slate-500 text-[11px]">${r.detail}</td>
-                    </tr>
-                `;
-            }).join('');
+            renderInvoiceTable(filtered);
         }
 
         function formatNumber(num) {
